@@ -11,7 +11,7 @@
 #include "initfcc.h"
 #include "alpotential.h"
 #define N 256  // Number of atoms
-#define timesteps 2000  // Number of timesteps for velocity Verlet
+#define timesteps 10000  // Number of timesteps for velocity Verlet
 
 
 double energy_to_volume(double v_start, double v_end, int N_points, double X[][3], int Nc){
@@ -51,6 +51,7 @@ double energy_to_volume(double v_start, double v_end, int N_points, double X[][3
 
 void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
     // Lattice constant a, number of dimensions, number of unit cells in all directions and mass of Al. 
+    // Modified for task 5 to calculate the mean squared displacement as a function of time
 
     // Code for generating a uniform random number between 0 and 1. srand should only be called once.
     srand(time(NULL));  // Set the seed for rand
@@ -68,6 +69,16 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
     double Ep[timesteps];  // Potential energy
     double Ek[timesteps];  // Kinetic energy
     double Et[timesteps];  // Total energy
+
+    double MSD[timesteps];  // Task 5 - Mean squared displacement as measured from the start point
+
+    // Task 5 - mean squared displacement
+    double x0[N][3];
+    for(i=0; i<N; i++){
+        for(j=0; j<ndim; j++){
+            x0[i][j] = x[i][j];  // x0 is the reference positions for all atoms
+        }
+    } 
     
     // Generate intial displacements in all directions
     for(i=0; i<N; i-=-1){
@@ -146,9 +157,22 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
         }
         Ek[i] = ek; 
         Et[i] = Ep[i] + Ek[i];  // Total energy is sum of kinetic and potential
+
+        // Task 5 - Calculate MSD for this iteration
+        double sum = 0;
+        double delta_x;
+        for(j=0; j<N; j+=1){
+            delta_x = 0;
+            for(k=0; k<ndim; k+=1){
+                delta_x += pow(x[j][k]-x0[j][k], 2.0);
+            }
+            // printf("dx[0]: %.2f \t dx[1]: %.2f \t  dx[2]: %.2f \n", x[j][0]-x0[j][0], x[j][1]-x0[j][1], x[j][2]-x0[j][2]);
+            sum += delta_x;
+        }
+        MSD[i] = sum/N;
     }
 
-    // Save results to file
+    // Save energies to file
     FILE *f;
     f = fopen("datafiles/vv_energies.dat", "w");
     double t;  // Time for each iteration
@@ -157,8 +181,16 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
         fprintf(f, "%.4f \t %.4f \t %.4f \t %.4f \n", t, Ep[i], Ek[i], Et[i]);
     }
     fclose(f);
-}
+    // Saved MSD to file
+    f = fopen("datafiles/MSD.dat", "w");
+    t=0;  // Time for each iteration
+    for(i=0; i<timesteps; i++){
+        t = i*dt;
+        fprintf(f, "%.4f \t %.4f \n", t, MSD[i]);
+    }
+    fclose(f);
 
+}
 
 /* Main program */
 int main()
