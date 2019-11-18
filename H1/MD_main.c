@@ -49,6 +49,40 @@ double energy_to_volume(double v_start, double v_end, int N_points, double X[][3
 }
 
 
+void calc_corr_function(double phi[], double A[][N], int M, int corr_offset){
+    // Calculates a general correlation function. Phi is the output correlation function at various times t, 
+    // A is a matrix containing the observable in question for all particles at various times t.
+    // M is the total number of timesteps, and corr_offset is the offset at which the correlation function 
+    // is to be calculated.
+
+    // Initialize variables
+    int m,n;  // Iteration variables
+    double C[M][N];  // A matrix containing the correlation functions for all particles at one time t
+
+    // Calculate correlation functions for each particle
+    double corr_func;  // The correlation function for on
+    for(n=0; n<N; n+=1){
+
+    }
+
+
+    double corr_func;  // The correlation at time t for one particle
+    double sum;  // Sum of correlations at time t for all particles
+    for(m=0; m<M-corr_offset; m+=1){
+        sum = 0;
+        for(n=0; n<N; n+=1){
+            corr_at_t = A[m+corr_offset][n]*A[m][n];
+            sum += corr_at_t;
+            // if(m<2){
+            //     printf("Correlation: %.2f \t m: %d \t n: %d \n", corr_at_t, m, n);
+            // }
+        }
+        printf("Sum: %.2f \n", sum);
+        phi[m] = sum/N;
+    }
+
+}
+
 void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
     // Lattice constant a, number of dimensions, number of unit cells in all directions and mass of Al. 
     // Modified for task 5 to calculate the mean squared displacement as a function of time
@@ -70,10 +104,16 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
     double Ek[timesteps+1];  // Kinetic energy
     double Et[timesteps+1];  // Total energy
 
-    double MSD[timesteps+1];  // Task 5 - Mean squared displacement as measured from the start point
-    double phi[timesteps+1];  // Task 6 - Time autocorrelation function - delta t is ten iterations
+    // Task 5
+    double MSD[timesteps+1];  // Mean squared displacement as measured from the start point
+
+    // Task 6
+    int corr_offset = 10;  // The correlation offset
+    double phi[timesteps+1-corr_offset];  // Time velocity correlation function - not defined for last corr_offset values.
+    double absolute_velocities[timesteps+1][N];  // Matrix containing all particle absolute velocities
 
     // Task 5 - mean squared displacement
+    // Save reference positions in x0
     double x0[N][3];
     for(i=0; i<N; i++){
         for(j=0; j<ndim; j++){
@@ -109,6 +149,7 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
         }
     }
 
+    // Calculate energies for initial conditions
     Ep[0] = get_energy_AL(x, Nc*a0, N);  // Supercell length is Nc*a0
     // Calculate the kinetic energy - T = 0.5*m*|v|^2
     double ek = 0;
@@ -124,7 +165,12 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
     Ek[0] = ek; 
     Et[0] = Ep[0] + Ek[0];  // Total energy is sum of kinetic and potential
     
-
+    // Save initial velocities for particles
+    for(j=0; j<N; j+=1){
+        absolute_velocities[0][j] = v[j][0]; // It's 0 in all directions, so the abs is also 0.   
+    }
+      
+     
     // Velocity verlet 
     for(i=1; i<timesteps+1; i+=1){
         // Calculate approximate new velocity - at deltat/2
@@ -186,7 +232,22 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
             sum += delta_x;
         }
         MSD[i] = sum/N;
+
+        // Task 6 - Calculate velocity correlation function
+        double v_abs;  // Velocity for one particle
+        // Save current velocities for autocorrelation function
+        for(j=0; j<N; j+=1){
+            v_abs=0;
+            for(k=0; k<ndim; k+=1){
+                v_abs += abs(v[j][k]);
+            }
+            // printf("v_abs: %.2f \n", v_abs);
+            absolute_velocities[i][j] = v_abs;   
+        }
     }
+
+    // Calculate velocity correlation function
+    calc_corr_function(phi, absolute_velocities, timesteps+1, corr_offset);
 
     // Save energies to file
     FILE *f;
@@ -197,12 +258,22 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
         fprintf(f, "%.4f \t %.4f \t %.4f \t %.4f \n", t, Ep[i], Ek[i], Et[i]);
     }
     fclose(f);
+
     // Saved MSD to file
     f = fopen("datafiles/MSD.dat", "w");
     t=0;  // Time for each iteration
     for(i=0; i<timesteps+1; i++){
         t = i*dt;
         fprintf(f, "%.4f \t %.4f \n", t, MSD[i]);
+    }
+    fclose(f);
+
+    // Save velocity correlation function to file
+    f = fopen("datafiles/vel_corr.dat", "w");
+    t=0;  // Time for each iteration
+    for(i=0; i<timesteps+1; i++){
+        t = i*dt;
+        fprintf(f, "%.4f \t %.4f \n", t, phi[i]);
     }
     fclose(f);
 
