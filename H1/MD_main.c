@@ -11,9 +11,10 @@
 #include "initfcc.h"
 #include "alpotential.h"
 #define N 256  // Number of atoms
+#define timesteps 2000  // Number of timesteps for velocity Verlet
 
 
-void energy_to_volume(double v_start, double v_end, int N_points, double X[][3], int Nc){
+double energy_to_volume(double v_start, double v_end, int N_points, double X[][3], int Nc){
     // TASK 1 - Calculates the energy of N_points volumes between v_start and v_end (INCLUDING end points) 
     // and saves them to a file
     double a_start = pow(v_start, 1.0/3.0);
@@ -21,6 +22,8 @@ void energy_to_volume(double v_start, double v_end, int N_points, double X[][3],
     double energies[N_points];
     double volumes[N_points];
     double delta_a = (a_end-a_start)/((double)N_points-1);
+    double lowest_energy = 0;  // Lowest energy 
+    double min_a = 0;  // The lattice constant for the minimum energy
     for (int i=0; i<N_points; i++){
         double a = a_start + delta_a*i;
         init_fcc(X, Nc, a);
@@ -30,12 +33,128 @@ void energy_to_volume(double v_start, double v_end, int N_points, double X[][3],
         // This is wrong - it should be almost much smaller. Are there more unit cells than what I wrote?
         energies[i] = energy/(N/4);  // Energy per unit cell - there are 4 atoms per unit cell in an FCC, and N atoms in total.
         volumes[i] = pow(a, 3.0);
+        if(energies[i] < lowest_energy){
+            lowest_energy = energies[i];
+            min_a = a;
+        } 
     }  
     // Write energies to file
     FILE *f;
     f = fopen("datafiles/energy_to_volume.dat", "w");
     for(int i=0; i<N_points; i++){
         fprintf(f, "%.4f \t %.4f \n", volumes[i], energies[i]);
+    }
+    fclose(f);
+    return(min_a); 
+}
+
+
+void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
+    // Lattice constant a, number of dimensions, number of unit cells in all directions and mass of Al. 
+
+    // Code for generating a uniform random number between 0 and 1. srand should only be called once.
+    srand(time(NULL));  // Set the seed for rand
+    double rand_disp;  // random displacement
+    
+
+    // Initialization of variables
+    int i,j,k; // loop variables 
+    double x[N][3];  // Current position
+    init_fcc(x, Nc, a0);  // Initialize lattice
+    double v[N][3];  // Current velocity
+    double a[N][3];  // Current acceleration
+    double F[N][3];  // Current force
+
+    double Ep[timesteps];  // Potential energy
+    double Ek[timesteps];  // Kinetic energy
+    double Et[timesteps];  // Total energy
+    
+    // Generate intial displacements in all directions
+    for(i=0; i<N; i-=-1){
+        for(j=0; j<ndim; j+=1){
+            // Generate random displacement
+            rand_disp = 2*((double) rand() / (double) RAND_MAX  - 0.5)*0.065*a0;  // Generate random displacement from - a0 + (+-)0.065*a0
+            x[i][j] +=  rand_disp;  // x initialized to be at a0
+        }
+        
+    }
+
+    get_forces_AL(F, x, Nc*a0, N);  // Calculate initial forces and accelerations
+    for(i=0; i<N; i-=-1){
+        for(j=0; j<ndim; j+=1){
+            // Set initial velocities and accelerations
+            v[i][j] = 0.0; 
+            a[i][j] = F[i][j]/m_al;
+        }
+    }
+
+    // Check that initial velocities are indeed 0
+    for(i=0; i<N; i-=-1){
+        for(j=0; j<ndim; j+=1){
+            if(v[i][j] != 0.0){
+                printf("Initialization error: %.2f \n", v[i][j]);
+            }
+        }
+    }
+
+
+    // Velocity verlet 
+    for(i=0; i<timesteps; i+=1){
+        // Calculate approximate new velocity - at deltat/2
+        for(j=0; j<N; j+=1){
+            for(k=0; k<ndim; k+=1){
+                v[j][k] += dt/2 * a[j][k];
+            }
+        }
+
+        // Calculate new positions
+        for(j=0; j<N; j+=1){
+            for(k=0; k<ndim; k+=1){
+                x[j][k] += dt * v[j][k];
+            }
+        }
+
+        // Calculate new forces and accelerations
+        get_forces_AL(F, x, Nc*a0, N);  // Supercell length is Nc*a0
+        for(j=0; j<N; j+=1){
+            for(k=0; k<ndim; k+=1){
+                a[j][k] = F[j][k]/m_al;
+                // printf("a[0]: %.2f \t a[1]: %.2f \t  a[2]: %.2f \n", a[j][0], a[j][1], a[j][2]);
+                // a[j][k] = 0.0;
+            }
+        }
+
+        // Calculate final velocities
+        for(j=0; j<N; j+=1){
+            for(k=0; k<ndim; k+=1){
+                v[j][k] += dt/2 * a[j][k];
+            }
+        }
+
+        // Calculate and save energies for this iteration
+        Ep[i] = get_energy_AL(x, Nc*a0, N);  // Supercell length is Nc*a0
+        // Calculate the kinetic energy - T = 0.5*m*|v|^2
+        double ek = 0;
+        double abs_v_sq;
+        for(j=0; j<N; j+=1){
+            abs_v_sq = 0;
+            for(k=0; k<ndim; k+=1){
+                abs_v_sq += v[j][k] * v[j][k];  // ek = 0.5*mv^2 
+            }
+            // printf("v[0]: %.2f \t v[1]: %.2f \t  v[2]: %.2f \n", v[j][0], v[j][1], v[j][2]);
+            ek += 0.5*m_al*abs_v_sq;
+        }
+        Ek[i] = ek; 
+        Et[i] = Ep[i] + Ek[i];  // Total energy is sum of kinetic and potential
+    }
+
+    // Save results to file
+    FILE *f;
+    f = fopen("datafiles/vv_energies.dat", "w");
+    double t;  // Time for each iteration
+    for(i=0; i<timesteps; i++){
+        t = i*dt;
+        fprintf(f, "%.4f \t %.4f \t %.4f \t %.4f \n", t, Ep[i], Ek[i], Et[i]);
     }
     fclose(f);
 }
@@ -45,18 +164,15 @@ void energy_to_volume(double v_start, double v_end, int N_points, double X[][3],
 int main()
 {
     // Initialization of variables and structures
-    double a0 = 4;  // Lattice parameter in Å
+    
     double X[N][3];  // Positions for each particle - x, y, z coordinate.
     int Nc = (int)round(pow(N/4, 1.0/3.0));  // Number of atoms N = 4*Nc*Nc*Nc => Nc = (N/4)^1/3 - 4 atoms per unit cell, with Nc primitive cells in each direction => in total N atoms. 
+    double m_al = 0.002796;  // 27 u in our atomic units.
+    double dt = 0.005;  // Recommended according to MD is a few femtoseconds
     // Initialize lattic
-    init_fcc(X, Nc, a0);
+    // double a0 = 4;  // Lattice parameter in Å
+    // init_fcc(X, Nc, a0);
 
-    // Code for generating a uniform random number between 0 and 1. srand should only be called once.
-    // srand(time(NULL));  // Set the seed for rand
-    // double random_value;
-    // random_value = (double) rand() / (double) RAND_MAX;
-    
-    
     /*
      Descriptions of the different functions in the files initfcc.c and
      alpotential.c are listed below.
@@ -74,8 +190,13 @@ int main()
     double v_start = 64;
     double v_end = 68;
     int N_volumes = 9;
-    energy_to_volume(v_start, v_end, N_volumes, X, Nc);
+    double min_a;
+    min_a = energy_to_volume(v_start, v_end, N_volumes, X, Nc);
     
+    // Task 2
+    int ndim = 3;
+    printf("Equilibrium lattice constant: %.4f Å. \n", min_a);
+    velocity_verlet(min_a, ndim, Nc, dt, m_al);
     
     /* 
      Function that calculates the potential energy in units of [eV]. pos should be
