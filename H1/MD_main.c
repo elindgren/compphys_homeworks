@@ -11,7 +11,7 @@
 #include "initfcc.h"
 #include "alpotential.h"
 #define N 256  // Number of atoms
-#define timesteps 10000  // Number of timesteps for velocity Verlet
+#define timesteps 1000  // Number of timesteps for velocity Verlet
 
 
 double energy_to_volume(double v_start, double v_end, int N_points, double X[][3], int Nc){
@@ -66,11 +66,12 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
     double a[N][3];  // Current acceleration
     double F[N][3];  // Current force
 
-    double Ep[timesteps];  // Potential energy
-    double Ek[timesteps];  // Kinetic energy
-    double Et[timesteps];  // Total energy
+    double Ep[timesteps+1];  // Potential energy
+    double Ek[timesteps+1];  // Kinetic energy
+    double Et[timesteps+1];  // Total energy
 
-    double MSD[timesteps];  // Task 5 - Mean squared displacement as measured from the start point
+    double MSD[timesteps+1];  // Task 5 - Mean squared displacement as measured from the start point
+    double phi[timesteps+1];  // Task 6 - Time autocorrelation function - delta t is ten iterations
 
     // Task 5 - mean squared displacement
     double x0[N][3];
@@ -91,7 +92,7 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
     }
 
     get_forces_AL(F, x, Nc*a0, N);  // Calculate initial forces and accelerations
-    for(i=0; i<N; i-=-1){
+    for(i=0; i<N+1; i-=-1){
         for(j=0; j<ndim; j+=1){
             // Set initial velocities and accelerations
             v[i][j] = 0.0; 
@@ -108,9 +109,24 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
         }
     }
 
+    Ep[0] = get_energy_AL(x, Nc*a0, N);  // Supercell length is Nc*a0
+    // Calculate the kinetic energy - T = 0.5*m*|v|^2
+    double ek = 0;
+    double abs_v_sq;
+    for(j=0; j<N; j+=1){
+        abs_v_sq = 0;
+        for(k=0; k<ndim; k+=1){
+            abs_v_sq += v[j][k] * v[j][k];  // ek = 0.5*mv^2 
+        }
+        // printf("v[0]: %.2f \t v[1]: %.2f \t  v[2]: %.2f \n", v[j][0], v[j][1], v[j][2]);
+        ek += 0.5*m_al*abs_v_sq;
+    }
+    Ek[0] = ek; 
+    Et[0] = Ep[0] + Ek[0];  // Total energy is sum of kinetic and potential
+    
 
     // Velocity verlet 
-    for(i=0; i<timesteps; i+=1){
+    for(i=1; i<timesteps+1; i+=1){
         // Calculate approximate new velocity - at deltat/2
         for(j=0; j<N; j+=1){
             for(k=0; k<ndim; k+=1){
@@ -176,7 +192,7 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
     FILE *f;
     f = fopen("datafiles/vv_energies.dat", "w");
     double t;  // Time for each iteration
-    for(i=0; i<timesteps; i++){
+    for(i=0; i<timesteps+1; i++){
         t = i*dt;
         fprintf(f, "%.4f \t %.4f \t %.4f \t %.4f \n", t, Ep[i], Ek[i], Et[i]);
     }
@@ -184,7 +200,7 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al){
     // Saved MSD to file
     f = fopen("datafiles/MSD.dat", "w");
     t=0;  // Time for each iteration
-    for(i=0; i<timesteps; i++){
+    for(i=0; i<timesteps+1; i++){
         t = i*dt;
         fprintf(f, "%.4f \t %.4f \n", t, MSD[i]);
     }
