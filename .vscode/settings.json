@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "initfcc.h": "c"
+        "initfcc.h": "c",
+        "stdlib.h": "c"
     }
 }

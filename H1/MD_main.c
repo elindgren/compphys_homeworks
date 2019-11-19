@@ -61,15 +61,12 @@ void calc_corr_function(double phi[], double A[][N], int M, int corr_offset)
 
     // Initialize variables
     int m, n;       // Iteration variables
-    double C[M][N]; // A matrix containing the correlation functions for all particles at one time t
+    // double C[M][N]; // A matrix containing the correlation functions for all particles at one time t
 
     // Calculate correlation functions for each particle
-    double corr_func; // The correlation function for on
-    for (n = 0; n < N; n += 1)
-    {
-    }
+    
 
-    double corr_func; // The correlation at time t for one particle
+    // double corr_func; // The correlation at time t for one particle
     double sum;       // Sum of correlations at time t for all particles
     for (m = 0; m < M - corr_offset; m += 1)
     {
@@ -87,26 +84,25 @@ void calc_corr_function(double phi[], double A[][N], int M, int corr_offset)
     }
 }
 
-void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al)
+void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3], double a_lat, int ndim, int Nc, double dt, double m_al, int equilibrate, double Teq, double Peq)
 {
     // Lattice constant a, number of dimensions, number of unit cells in all directions and mass of Al.
     // Modified for task 5 to calculate the mean squared displacement as a function of time
 
-    // Code for generating a uniform random number between 0 and 1. srand should only be called once.
-    srand(time(NULL)); // Set the seed for rand
-    double rand_disp;  // random displacement
-
     // Initialization of variables
     int i, j, k;         // loop variables
-    double x[N][3];      // Current position
-    init_fcc(x, Nc, a0); // Initialize lattice
-    double v[N][3];      // Current velocity
-    double a[N][3];      // Current acceleration
-    double F[N][3];      // Current force
 
     double Ep[timesteps + 1]; // Potential energy
     double Ek[timesteps + 1]; // Kinetic energy
     double Et[timesteps + 1]; // Total energy
+
+    // Task 3
+    double T, P;  // Pressure and temperature
+    double alpha_t, alpha_p;  // Scaling parameters for equilibration
+    double timedecay = 250*dt;  // Timedecay
+    double Temperatures[timesteps + 1];
+    double Pressures[timesteps + 1];
+    double Lat_params[timesteps + 1];
 
     // Task 5
     double MSD[timesteps + 1]; // Mean squared displacement as measured from the start point
@@ -127,42 +123,10 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al)
         }
     }
 
-    // Generate intial displacements in all directions
-    for (i = 0; i < N; i -= -1)
-    {
-        for (j = 0; j < ndim; j += 1)
-        {
-            // Generate random displacement
-            rand_disp = 2 * ((double)rand() / (double)RAND_MAX - 0.5) * 0.065 * a0; // Generate random displacement from - a0 + (+-)0.065*a0
-            x[i][j] += rand_disp;                                                   // x initialized to be at a0
-        }
-    }
 
-    get_forces_AL(F, x, Nc * a0, N); // Calculate initial forces and accelerations
-    for (i = 0; i < N + 1; i -= -1)
-    {
-        for (j = 0; j < ndim; j += 1)
-        {
-            // Set initial velocities and accelerations
-            v[i][j] = 0.0;
-            a[i][j] = F[i][j] / m_al;
-        }
-    }
-
-    // Check that initial velocities are indeed 0
-    for (i = 0; i < N; i -= -1)
-    {
-        for (j = 0; j < ndim; j += 1)
-        {
-            if (v[i][j] != 0.0)
-            {
-                printf("Initialization error: %.2f \n", v[i][j]);
-            }
-        }
-    }
 
     // Calculate energies for initial conditions
-    Ep[0] = get_energy_AL(x, Nc * a0, N); // Supercell length is Nc*a0
+    Ep[0] = get_energy_AL(x, Nc * a_lat, N); // Supercell length is Nc*a_lat
     // Calculate the kinetic energy - T = 0.5*m*|v|^2
     double ek = 0;
     double abs_v_sq;
@@ -207,7 +171,7 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al)
         }
 
         // Calculate new forces and accelerations
-        get_forces_AL(F, x, Nc * a0, N); // Supercell length is Nc*a0
+        get_forces_AL(F, x, Nc * a_lat, N); // Supercell length is Nc*a_lat
         for (j = 0; j < N; j += 1)
         {
             for (k = 0; k < ndim; k += 1)
@@ -228,7 +192,7 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al)
         }
 
         // Calculate and save energies for this iteration
-        Ep[i] = get_energy_AL(x, Nc * a0, N); // Supercell length is Nc*a0
+        Ep[i] = get_energy_AL(x, Nc * a_lat, N); // Supercell length is Nc*a_lat
         // Calculate the kinetic energy - T = 0.5*m*|v|^2
         double ek = 0;
         double abs_v_sq;
@@ -273,41 +237,80 @@ void velocity_verlet(double a0, int ndim, int Nc, double dt, double m_al)
             // printf("v_abs: %.2f \n", v_abs);
             absolute_velocities[i][j] = v_abs;
         }
+        // Set scaling parameters
+        T = calc_temp(N, m_al, v);
+        Temperatures[i] = T;
+        P = calc_pres(N, m_al, v, x, Nc*a_lat);
+        Pressures[i] = P;
+        if(equilibrate){
+            alpha_t = calc_temp_scale(dt, timedecay, Teq, T);
+            alpha_p = calc_pres_scale(dt, timedecay, Peq, P);
+        }else{
+            alpha_t = 1;
+            alpha_p = 1;
+        }
+
+        // Rescale for equilibration
+        for (j = 0; j < N; j += 1)
+        {
+            for (k = 0; k < ndim; k += 1)
+            {
+                v[j][k] = v[j][k] * sqrt(alpha_t);  // Rescales velocity - changes temperature
+                x[j][k] = x[j][k] * pow(alpha_p, 1.0/3.0 );  // Rescales positions 
+            }
+        }
+        a_lat = a_lat*pow(alpha_p, 1.0/3.0 );  // Rescales volume - changes pressure
+        Lat_params[i] = a_lat;
     }
 
     // Calculate velocity correlation function
-    calc_corr_function(phi, absolute_velocities, timesteps + 1, corr_offset);
+    // calc_corr_function(phi, absolute_velocities, timesteps + 1, corr_offset);
 
-    // Save energies to file
     FILE *f;
-    f = fopen("datafiles/vv_energies.dat", "w");
-    double t; // Time for each iteration
-    for (i = 0; i < timesteps + 1; i++)
-    {
-        t = i * dt;
-        fprintf(f, "%.4f \t %.4f \t %.4f \t %.4f \n", t, Ep[i], Ek[i], Et[i]);
-    }
-    fclose(f);
+    if(equilibrate){
+        printf("Saveing I guess \n");
+        f = fopen("datafiles/equilibration.dat", "w");
+        double t; // Time for each iteration
+        for (i = 0; i < timesteps + 1; i++)
+        {
+            t = i * dt;
+            fprintf(f, "%.8f \t %.8f \t %.8f \t %.8f \n", t, Temperatures[i], Pressures[i], Lat_params[i]);
+        }
+        fclose(f);
+    }else{
+        // Production run
 
-    // Saved MSD to file
-    f = fopen("datafiles/MSD.dat", "w");
-    t = 0; // Time for each iteration
-    for (i = 0; i < timesteps + 1; i++)
-    {
-        t = i * dt;
-        fprintf(f, "%.4f \t %.4f \n", t, MSD[i]);
-    }
-    fclose(f);
+        // Save energies to file
+        f = fopen("datafiles/vv_energies.dat", "w");
+        double t; // Time for each iteration
+        for (i = 0; i < timesteps + 1; i++)
+        {
+            t = i * dt;
+            fprintf(f, "%.4f \t %.4f \t %.4f \t %.4f \n", t, Ep[i], Ek[i], Et[i]);
+        }
+        fclose(f);
 
-    // Save velocity correlation function to file
-    f = fopen("datafiles/vel_corr.dat", "w");
-    t = 0; // Time for each iteration
-    for (i = 0; i < timesteps + 1; i++)
-    {
-        t = i * dt;
-        fprintf(f, "%.4f \t %.4f \n", t, phi[i]);
+        // Saved MSD to file
+        f = fopen("datafiles/MSD.dat", "w");
+        t = 0; // Time for each iteration
+        for (i = 0; i < timesteps + 1; i++)
+        {
+            t = i * dt;
+            fprintf(f, "%.4f \t %.4f \n", t, MSD[i]);
+        }
+        fclose(f);
+
+        // Save velocity correlation function to file
+        f = fopen("datafiles/vel_corr.dat", "w");
+        t = 0; // Time for each iteration
+        for (i = 0; i < timesteps + 1; i++)
+        {
+            t = i * dt;
+            fprintf(f, "%.4f \t %.4f \n", t, phi[i]);
+        }
+        fclose(f);
     }
-    fclose(f);
+    
 }
 
 /* Main program */
@@ -340,13 +343,51 @@ int main()
     double v_start = 64;
     double v_end = 68;
     int N_volumes = 9;
-    double min_a;
-    min_a = energy_to_volume(v_start, v_end, N_volumes, X, Nc);
+    double a_lat = energy_to_volume(v_start, v_end, N_volumes, X, Nc);
 
     // Task 2
     int ndim = 3;
-    printf("Equilibrium lattice constant: %.4f Å. \n", min_a);
-    velocity_verlet(min_a, ndim, Nc, dt, m_al);
+    printf("Equilibrium lattice constant: %.4f Å. \n", a_lat);
+    double Teq = 500;
+    double Peq = 1.0/1.602 * 0.000001; 
+    int equilibrate = 1;
+
+    // Code for generating a uniform random number between 0 and 1. srand should only be called once.
+    srand(time(NULL)); // Set the seed for rand
+    double rand_disp;  // random displacement
+
+    double x[N][3];         // Current position
+    init_fcc(x, Nc, a_lat); // Initialize lattice
+    double v[N][3];         // Current velocity
+    double a[N][3];         // Current acceleration
+    double F[N][3];         // Current force
+
+    // Generate intial displacements in all directions
+    for (int i = 0; i < N; i -= -1)
+    {
+        for (int j = 0; j < ndim; j += 1)
+        {
+            // Generate random displacement
+            rand_disp = 2 * ((double)rand() / (double)RAND_MAX - 0.5) * 0.065 * a_lat;   // Generate random displacement from - a_lat + (+-)0.065*a_lat
+            x[i][j] += rand_disp;                                                        // x initialized to be at a_lat
+        }
+    }
+
+    get_forces_AL(F, x, Nc * a_lat, N); // Calculate initial forces and accelerations
+    for (int i = 0; i < N; i -= -1)
+    {
+        for (int j = 0; j < ndim; j += 1)
+        {
+            // Set initial velocities and accelerations
+            v[i][j] = 0.0;
+            a[i][j] = F[i][j] / m_al;
+        }
+    }
+    // Equilibration
+    velocity_verlet(x, v, a, F, a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq);
+    // Production 
+    equilibrate = 0;
+    velocity_verlet(x, v, a, F, a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq);
 
     /* 
      Function that calculates the potential energy in units of [eV]. pos should be

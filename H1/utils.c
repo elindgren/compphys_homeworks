@@ -1,4 +1,6 @@
+#include <math.h>
 #include "alpotential.h"
+
 
 /* Calculate the instantaneous temperature based on kinetic energy */
 double calc_temp(int N, double m, double v[][3])
@@ -14,7 +16,7 @@ double calc_temp(int N, double m, double v[][3])
         }
     }
 
-    return 1 / (3 * N * k * m) * sum;
+    return m / (3 * N * k ) * sum;
 }
 
 /* Calculate the instantaneous pressure bassed on the kinetict energy and virial */
@@ -32,10 +34,10 @@ double calc_pres(int N, double m, double v[][3], double x[][3], double cell_leng
             sum += v[i][j] * v[i][j];
         }
     }
-    sum /= 3 * m;
+    sum *= m/3.0;
 
     /* Add the virial contribution */
-    volume = 1; //TODO
+    volume = pow(cell_length, 3.0); // Volume of supercell
     sum += get_virial_AL(x, cell_length, N);
     sum /= volume;
 
