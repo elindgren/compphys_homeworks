@@ -1,6 +1,86 @@
+#include <stdio.h>
 #include <math.h>
 #include "alpotential.h"
+#include "initfcc.h"
 
+/* Calculates the potential energy as a function of the cell volume.
+ * Saves energy to file "energy_to_volume.dat"
+ */
+double energy_to_volume(int N, double v_start, double v_end, int N_points, double X[][3], int Nc)
+{
+    double a_start = pow(v_start, 1.0 / 3.0);
+    double a_end = pow(v_end, 1.0 / 3.0);
+    double energies[N_points];
+    double volumes[N_points];
+    double delta_a = (a_end - a_start) / ((double)N_points - 1);
+    double lowest_energy = 0; // Lowest energy
+    double min_a = 0;         // The lattice constant for the minimum energy
+    double a;
+    double energy;
+    FILE *f;
+
+    for (int i = 0; i < N_points; i++)
+    {
+        a = a_start + delta_a * i;
+        init_fcc(X, Nc, a);
+        /* The supercell is the cell S that describes the same crystal 
+         * as the unit cell U, but is of larger volume than U.
+         * Here, it is the size of the crystal (L = Nc*a).
+         */
+        energy = get_energy_AL(X, Nc * a, N);
+        energies[i] = energy / (N / 4); /* Energy per unit cell - there are 4 atoms 
+                                         * per unit cell in an FCC, and N atoms in total.
+                                         */
+        volumes[i] = pow(a, 3.0);
+        if (energies[i] < lowest_energy)
+        {
+            lowest_energy = energies[i];
+            min_a = a;
+        }
+    }
+
+    /* Write energies to file */
+    f = fopen("datafiles/energy_to_volume.dat", "w");
+    for (int i = 0; i < N_points; i++)
+    {
+        fprintf(f, "%.4f \t %.4f \n", volumes[i], energies[i]);
+    }
+    fclose(f);
+    return (min_a);
+}
+
+/* 
+ * Calculate a general correlation function.
+ * Phi is the output correlation function at various time t.
+ * A is a matrix containing the observable in question for all particles at various times t.
+ * M is the total number of timesteps.
+ * corr_offset is the offset at which the correlation function is to be calculated.
+ */
+void calc_corr_function(int N, double phi[], double A[][N], int M, int corr_offset)
+{
+    // Initialize variables
+    int m, n; // Iteration variables
+    // double C[M][N]; // A matrix containing the correlation functions for all particles at one time t
+
+    // Calculate correlation functions for each particle
+
+    // double corr_func; // The correlation at time t for one particle
+    double sum; // Sum of correlations at time t for all particles
+    for (m = 0; m < M - corr_offset; m += 1)
+    {
+        sum = 0;
+        for (n = 0; n < N; n += 1)
+        {
+            double corr_at_t = A[m + corr_offset][n] * A[m][n]; // Inserted double to momentarily fix error
+            sum += corr_at_t;
+            // if(m<2){
+            //     printf("Correlation: %.2f \t m: %d \t n: %d \n", corr_at_t, m, n);
+            // }
+        }
+        printf("Sum: %.2f \n", sum);
+        phi[m] = sum / N;
+    }
+}
 
 /* Calculate the instantaneous temperature based on kinetic energy */
 double calc_temp(int N, double m, double v[][3])
@@ -16,7 +96,7 @@ double calc_temp(int N, double m, double v[][3])
         }
     }
 
-    return m / (3 * N * k ) * sum;
+    return m / (3 * N * k) * sum;
 }
 
 /* Calculate the instantaneous pressure bassed on the kinetict energy and virial */
@@ -34,7 +114,7 @@ double calc_pres(int N, double m, double v[][3], double x[][3], double cell_leng
             sum += v[i][j] * v[i][j];
         }
     }
-    sum *= m/3.0;
+    sum *= m / 3.0;
 
     /* Add the virial contribution */
     volume = pow(cell_length, 3.0); // Volume of supercell
