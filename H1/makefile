@@ -3,7 +3,7 @@ CC = gcc
 CFLAGS = -O3 -Wall
 LIBS = -lm
 
-HEADERS = initfcc.h alpotential.h
+HEADERS = initfcc.h alpotential.h utils.h
 OBJECTS = initfcc.o alpotential.o MD_main.o
 PROGRAM = MD
 
