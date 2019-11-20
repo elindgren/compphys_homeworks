@@ -12,6 +12,7 @@
 #include "initfcc.h"
 #include "alpotential.h"
 #include "utils.h"
+#include "fft_func.h"
 #define N 256          // Number of atoms
 #define timesteps 5000 // Number of timesteps for velocity Verlet
 
@@ -67,7 +68,21 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
         }
     }
 
-
+    /* Task 7 */
+    int B = 2*(timesteps+1);  // N in the notation in the notebook
+    double h[B];  // Vector to hold raw data for a single particle
+    double H[B];  // FFT of one particle
+    double freq[B];
+    double *x_vel_pad[B];  // Same as x_vel, but padded with N+1 zeros at the end
+    double *H_all[B];  // Fourier transform of velocity for all particles
+    for (i = 0; i < B; i++){
+        x_vel_pad[i] = (double *)malloc(N * sizeof(double));
+        H_all[i] = (double *)malloc(N * sizeof(double));
+        for (j = 0; j < N; j++){
+            x_vel_pad[i][j] = 0.0;
+            H_all[i][j] = 0.0;
+        }
+    }
 
     /* Calculate energies for initial conditions */
     Ep[0] = get_energy_AL(x, Nc * *a_lat, N); // Supercell length is Nc*a_lat
@@ -188,6 +203,7 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
         {
             x_pos[i][j] = x[j][0];
             x_vel[i][j] = v[j][0];
+            x_vel_pad[i][j] = v[j][0];
         }
         // Set scaling parameters
         T = calc_temp(N, m_al, v);
@@ -226,6 +242,24 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
         // calc_corr_function(timesteps + 1, N, MSD, x_pos);  // Task 5
         printf("Calculating velocity correlation function \n");
         calc_corr_function(timesteps + 1, N, phi, x_vel);  // Task 6
+    }
+
+    /* Task 7 - Fourier Transform velocities */
+    // Using FFT-module from E1 
+    if (!equilibrate){
+        fft_freq(freq, dt, B);  // Corresponding frequencies to powerspectra
+        for(i=0; i<N; i++){
+            /* Calculate power spectrum for one particle */
+            for(j=0; j<B; j++){
+                h[j] = x_vel_pad[j][i];  // Extract velocities for a single particle
+            }
+            powerspectrum(h, H, B);  // Powerspectrum
+            // Write powerspectrum to H_all
+            for(j=0; j<B; j++){
+                H_all[j][i] = H[j];  // Write spectrum for particle i
+            }
+        }
+
     }
 
 
@@ -304,6 +338,21 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
             fprintf(f, "%.4f \t %.4f \n", t, phi[i]);
         }
         fclose(f);
+
+        /* Save powerspectrum of velocity function to file */
+        filename[0] = '\0';  // Empty filename string
+        strcat(filename, dir);
+        strcat(filename, "/vel_powspec.dat");
+        f = fopen(filename, "w");
+        for (i = 0; i < timesteps + 1; i++)
+        {
+            fprintf(f, "%.4f ", freq[i]);
+            for(j=0; j<N; j++){
+                fprintf(f, "\t %.4f ", H_all[i][j]);
+            }
+            fprintf(f, " \n ");
+        }
+        fclose(f);
     }
 }
 
@@ -326,7 +375,7 @@ int main()
     /* Task 2 */
     int ndim = 3;
     printf("Equilibrium lattice constant: %.4f Å. \n", a_lat);
-    double Teq = 973.15;
+    double Teq = 773.15;
     double Peq = 1.0 / 1.602 * 0.000001;
     int equilibrate;
     char label[] = "liquid";  // Label for the current production run phase
@@ -363,8 +412,8 @@ int main()
         }
     }
     /* Equilibration 1 to melt system */
-    equilibrate = 1;
-    velocity_verlet(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
+    // equilibrate = 1;
+    // velocity_verlet(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
     /* Equilibration 2 to cool down system to 700 K*/
     equilibrate = 1;  
     velocity_verlet(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq, label);

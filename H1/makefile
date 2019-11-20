@@ -1,10 +1,10 @@
 
 CC = gcc
 CFLAGS = -O3 -Wall
-LIBS = -lm
+LIBS = -lm -lgsl -lgslcblas
 
-HEADERS = initfcc.h alpotential.h utils.h
-OBJECTS = initfcc.o alpotential.o utils.o MD_main.o 
+HEADERS = initfcc.h alpotential.h utils.h fft_func.h
+OBJECTS = initfcc.o alpotential.o utils.o fft_func.o MD_main.o 
 PROGRAM = MD
 
 %.o: %.c $(HEADERS)
