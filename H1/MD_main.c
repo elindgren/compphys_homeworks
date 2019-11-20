@@ -72,6 +72,7 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
     int B = 2*(timesteps+1);  // N in the notation in the notebook
     double h[B];  // Vector to hold raw data for a single particle
     double H[B];  // FFT of one particle
+    double C[timesteps+1];  // Correlation function from inverse FFT
     double freq[B];
     double *x_vel_pad[B];  // Same as x_vel, but padded with N+1 zeros at the end
     double *H_all[B];  // Fourier transform of velocity for all particles
@@ -258,6 +259,13 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
             for(j=0; j<B; j++){
                 H_all[j][i] = H[j];  // Write spectrum for particle i
             }
+            /* Perform inverse FFT */
+            for(int l=0; l<timesteps+1; l++){
+                double Cl = 0;
+                for(int m=0; m<N; m++){
+                    // Cl
+                }
+            }
         }
 
     }
@@ -290,7 +298,7 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
         /* Production run */
         printf("Saving production \n");
 
-        /* Save temperature, pressure and latice constant */   
+        // /* Save temperature, pressure and latice constant */   
         filename[0] = '\0';  // Empty filename string
         strcat(filename, dir);
         strcat(filename, "/temp_pres_lat.dat");
@@ -378,7 +386,7 @@ int main()
     double Teq = 773.15;
     double Peq = 1.0 / 1.602 * 0.000001;
     int equilibrate;
-    char label[] = "liquid";  // Label for the current production run phase
+    char label[] = "solid";  // Label for the current production run phase
 
     /* Code for generating a uniform random number between 0 and 1. srand should only be called once. */
     srand(time(NULL)); // Set the seed for rand
