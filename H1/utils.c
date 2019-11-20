@@ -56,29 +56,32 @@ double energy_to_volume(int N, double v_start, double v_end, int N_points, doubl
  * M is the total number of timesteps.
  * corr_offset is the offset at which the correlation function is to be calculated.
  */
-void calc_corr_function(int N, double phi[], double A[][N], int M, int corr_offset)
+void calc_corr_function(int M, int N, double phi[], double **A)
 {
     // Initialize variables
-    int m, n; // Iteration variables
-    // double C[M][N]; // A matrix containing the correlation functions for all particles at one time t
-
-    // Calculate correlation functions for each particle
+    int l, m, n; // Iteration variables
 
     // double corr_func; // The correlation at time t for one particle
     double sum; // Sum of correlations at time t for all particles
-    for (m = 0; m < M - corr_offset; m += 1)
-    {
+    double Cn;  // correlation function value at time t for particle n
+    for (l = 0; l < M; l += 1)
+    {   
+        // printf("\t l = %d \n", l);
+        // l is timelag in number of timesteps
         sum = 0;
-        for (n = 0; n < N; n += 1)
-        {
-            double corr_at_t = A[m + corr_offset][n] * A[m][n]; // Inserted double to momentarily fix error
-            sum += corr_at_t;
-            // if(m<2){
-            //     printf("Correlation: %.2f \t m: %d \t n: %d \n", corr_at_t, m, n);
-            // }
+        // For each timelag l, calculate the correlation function for this timestep for all particles n
+        for (n = 0; n < N; n++){
+            Cn = 0;
+            for (m = 0; m < M-l; m += 1)
+            {
+                // printf("\t m = %d \n", m);
+                Cn += A[m+l][n] * A[m][n];  // Particle 0 atm
+            }
+            // Average over times M-l
+            sum += Cn / (M - l);
         }
-        printf("Sum: %.2f \n", sum);
-        phi[m] = sum / N;
+        /* Average over all particles */
+        phi[l] = sum / N;
     }
 }
 

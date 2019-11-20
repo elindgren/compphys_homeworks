@@ -8,6 +8,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 #include "initfcc.h"
 #include "alpotential.h"
 #include "utils.h"
@@ -19,7 +20,7 @@
  * Lattice constant a, number of dimensions, number of unit cells in all directions and mass of Al
  * Modified for task 5 to calculate the mean squared displacement as a function of time
  */
-void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3], double *a_lat, int ndim, int Nc, double dt, double m_al, int equilibrate, double Teq, double Peq)
+void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3], double *a_lat, int ndim, int Nc, double dt, double m_al, int equilibrate, double Teq, double Peq, char label[])
 {
     int i, j, k; // loop variables
 
@@ -38,6 +39,15 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
 
     /* Task 5 */
     double MSD[timesteps + 1]; // Mean squared displacement as measured from the start point
+    
+    double *x_pos[timesteps + 1];   // Matrix containing all particle x positions
+    for (i = 0; i < timesteps + 1; i++){
+        x_pos[i] = (double *)malloc(N * sizeof(double));
+        for (j = 0; j < N; j++){
+            x_pos[i][j] = 0.0;
+        }
+    }
+
     double x0[N][3];           // Save reference positions in x0
     for (i = 0; i < N; i++)
     {
@@ -48,9 +58,16 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
     }
 
     /* Task 6 */
-    int corr_offset = 10;                         // The correlation offset
-    double phi[timesteps + 1 - corr_offset];      // Time velocity correlation function - not defined for last corr_offset values.
-    double absolute_velocities[timesteps + 1][N]; // Matrix containing all particle absolute velocities
+    double phi[timesteps + 1];                      // Time velocity correlation function - not defined for last corr_offset values.
+    double *x_vel[timesteps + 1];   // Matrix containing all particle x velocities
+    for (i = 0; i < timesteps + 1; i++){
+        x_vel[i] = (double *)malloc(N * sizeof(double));
+        for (j = 0; j < N; j++){
+            x_vel[i][j] = 0.0;
+        }
+    }
+
+
 
     /* Calculate energies for initial conditions */
     Ep[0] = get_energy_AL(x, Nc * *a_lat, N); // Supercell length is Nc*a_lat
@@ -77,10 +94,11 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
     {
         positions[0][j] = x[0][j];
     }
-    /* Save initial velocities for particles */
+    /* Save initial positions and velocities for particles */
     for (j = 0; j < N; j += 1)
-    {
-        absolute_velocities[0][j] = v[j][0]; // It's 0 in all directions, so the abs is also 0.
+    {   
+        x_pos[0][j] = x[j][0];
+        x_vel[0][j] = v[j][0]; // We only take x direction
     }
 
     /* The velocity Verlet algorithm */
@@ -149,6 +167,7 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
         Et[i] = Ep[i] + Ek[i]; // Total energy is sum of kinetic and potential
 
         /* Task 5 - Calculate MSD for this iteration */
+        // TODO change to same format as absolute velocities - save absolute displacement squared
         double sum = 0;
         double delta_x;
         for (j = 0; j < N; j += 1)
@@ -164,17 +183,11 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
         MSD[i] = sum / N;
 
         /* Task 6 - Calculate velocity correlation function */
-        double v_abs; // Velocity for one particle
-        /* Save current velocities for autocorrelation function */
+        /* Save current positions and velocities for autocorrelation functions */
         for (j = 0; j < N; j += 1)
         {
-            v_abs = 0;
-            for (k = 0; k < ndim; k += 1)
-            {
-                v_abs += abs(v[j][k]);
-            }
-            // printf("v_abs: %.2f \n", v_abs);
-            absolute_velocities[i][j] = v_abs;
+            x_pos[i][j] = x[j][0];
+            x_vel[i][j] = v[j][0];
         }
         // Set scaling parameters
         T = calc_temp(N, m_al, v);
@@ -207,14 +220,30 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
     }
 
     /* Calculate velocity correlation function */
-    // calc_corr_function(phi, absolute_velocities, timesteps + 1, corr_offset);
+    if (!equilibrate){
+        // printf("Calculating MSD function \n");
+        /* I tried to do the same with MSD as with velocity correlation */
+        // calc_corr_function(timesteps + 1, N, MSD, x_pos);  // Task 5
+        printf("Calculating velocity correlation function \n");
+        calc_corr_function(timesteps + 1, N, phi, x_vel);  // Task 6
+    }
+
 
     FILE *f;
     double t;
+    char filename[50] = "";
+    char dir[100] = "datafiles/";
+    strcat(dir, label);
+    strcat(filename, dir);
     if (equilibrate)
-    {
+    {   
+        /* Equilibration run */
         printf("Saving equilibration \n");
-        f = fopen("datafiles/equilibration.dat", "w");
+
+        filename[0] = '\0';  // Empty filename string
+        strcat(filename, dir);
+        strcat(filename, "/equilibration.dat");
+        f = fopen(filename, "w");
         for (i = 0; i < timesteps + 1; i++)
         {
             t = i * dt;
@@ -227,8 +256,11 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
         /* Production run */
         printf("Saving production \n");
 
-        /* Save temperature, pressure and latice constant */
-        f = fopen("datafiles/temp_pres_lat.dat", "w");
+        /* Save temperature, pressure and latice constant */   
+        filename[0] = '\0';  // Empty filename string
+        strcat(filename, dir);
+        strcat(filename, "/temp_pres_lat.dat");
+        f = fopen(filename, "w");
         for (i = 0; i < timesteps + 1; i++)
         {
             t = i * dt;
@@ -236,8 +268,11 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
         }
         fclose(f);
 
-        /* Save energies to file */
-        f = fopen("datafiles/vv_energies.dat", "w");
+        // /* Save energies to file */
+        filename[0] = '\0';  // Empty filename string
+        strcat(filename, dir);
+        strcat(filename, "/vv_energies.dat");
+        f = fopen(filename, "w");
         for (i = 0; i < timesteps + 1; i++)
         {
             t = i * dt;
@@ -246,7 +281,10 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
         fclose(f);
 
         /* Save position of particle p and MSD to file */
-        f = fopen("datafiles/MSD.dat", "w");
+        filename[0] = '\0';  // Empty filename string
+        strcat(filename, dir);
+        strcat(filename, "/MSD.dat");
+        f = fopen(filename, "w");
         for (i = 0; i < timesteps + 1; i++)
         {
             t = i * dt;
@@ -255,7 +293,10 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
         fclose(f);
 
         /* Save velocity correlation function to file */
-        f = fopen("datafiles/vel_corr.dat", "w");
+        filename[0] = '\0';  // Empty filename string
+        strcat(filename, dir);
+        strcat(filename, "/vel_corr.dat");
+        f = fopen(filename, "w");
         t = 0; // Time for each iteration
         for (i = 0; i < timesteps + 1; i++)
         {
@@ -285,9 +326,10 @@ int main()
     /* Task 2 */
     int ndim = 3;
     printf("Equilibrium lattice constant: %.4f Å. \n", a_lat);
-    double Teq = 773.15;
+    double Teq = 973.15;
     double Peq = 1.0 / 1.602 * 0.000001;
-    int equilibrate = 1;
+    int equilibrate;
+    char label[] = "liquid";  // Label for the current production run phase
 
     /* Code for generating a uniform random number between 0 and 1. srand should only be called once. */
     srand(time(NULL)); // Set the seed for rand
@@ -321,13 +363,15 @@ int main()
         }
     }
     /* Equilibration 1 to melt system */
-    //velocity_verlet(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq);
+    equilibrate = 1;
+    velocity_verlet(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
     /* Equilibration 2 to cool down system to 700 K*/
-    velocity_verlet(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq);
+    equilibrate = 1;  
+    velocity_verlet(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq, label);
 
     /* Production */
     equilibrate = 0;
-    velocity_verlet(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq);
+    velocity_verlet(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq, label);
 }
 
 /*

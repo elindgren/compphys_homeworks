@@ -1,3 +1,2 @@
-            // if(m<2){
-            //     printf("Correlation: %.2f \t m: %d \t n: %d \n", corr_at_t, m, n);
-            // }
+equilibrate = 1;
+    // velocity_verlet(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
