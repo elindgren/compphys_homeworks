@@ -206,6 +206,7 @@ void velocity_verlet(double x[][3], double v[][3], double a[][3], double F[][3],
             x_vel[i][j] = v[j][0];
             x_vel_pad[i][j] = v[j][0];
         }
+
         // Set scaling parameters
         T = calc_temp(N, m_al, v);
         Temperatures[i] = T;
