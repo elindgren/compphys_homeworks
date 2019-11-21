@@ -10,6 +10,7 @@ Created by Martin Gren on 2014-10-22.
 #define _fft_func_h
 
 extern void powerspectrum(double *, double *, int);
+extern void fft(double *, double *, int);
 
 extern void fft_freq(double *, double, int);
 

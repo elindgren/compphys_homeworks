@@ -1,7 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include "alpotential.h"
 #include "initfcc.h"
+#include "fft_func.h"
 
 /* Calculates the potential energy as a function of the cell volume.
  * Saves energy to file "energy_to_volume.dat"
@@ -84,6 +86,111 @@ void calc_corr_function(int M, int N, double phi[], double A[][N])
         phi[l] = sum / N;
     }
 }
+
+void mean_squared_displacement(int M, int N, double delta[], double X[][N], double Y[][N], double Z[][N])
+{
+    int l, m, n; // Iteration variables
+
+    // double corr_func; // The correlation at time t for one particle
+    double sum; // Sum of correlations at time t for all particles
+    double delta_n;  // correlation function value at time t for particle n
+    for (l = 0; l < M; l += 1)
+    {   
+        /* l is timelag in number of timesteps */
+        sum = 0;
+        /* For each timelag l, calculate the correlation function for this timestep for all particles n */
+        for (n = 0; n < N; n++){
+            delta_n = 0;
+            for (m = 0; m < M-l; m += 1)
+            {
+                delta_n += pow(X[m+l][n] - X[m][n], 2.0) + pow(Y[m+l][n] - Y[m][n], 2.0) + pow(Z[m+l][n] - Z[m][n], 2.0);  // Particle 0 atm
+            }
+            /* Average over times M-l */
+            sum += delta_n / (M - l);
+        }
+        /* Average over all particles */
+        delta[l] = sum / N;
+    }
+}
+
+void velocity_correlation(int M, int N, double phi[], double Vx[][N], double Vy[][N], double Vz[][N])
+{
+    int l, m, n; // Iteration variables
+
+    // double corr_func; // The correlation at time t for one particle
+    double sum; // Sum of correlations at time t for all particles
+    double phi_n;  // correlation function value at time t for particle n
+    for (l = 0; l < M; l += 1)
+    {   
+        /* l is timelag in number of timesteps */
+        sum = 0;
+        /* For each timelag l, calculate the correlation function for this timestep for all particles n */
+        for (n = 0; n < N; n++){
+            phi_n = 0;
+            for (m = 0; m < M-l; m += 1)
+            {
+                phi_n += Vx[m+l][n]*Vx[m][n] + Vy[m+l][n]*Vy[m][n] + Vz[m+l][n]*Vz[m][n];  // Particle 0 atm
+            }
+            /* Average over times M-l */
+            sum += phi_n / (M - l);
+        }
+        /* Average over all particles */
+        phi[l] = sum / N;
+    }
+}
+
+void fast_velocity_correlation(int timesteps, int N, double fast_phi[], double P[], double freq[], double Vx[][N], double Vy[][N], double Vz[][N], double dt){
+    int B = 2*timesteps;
+    // Declare matrices for FFT
+    double *vx = malloc(B * sizeof(double));  // Save one velocity vector
+    double *vy = malloc(B * sizeof(double));  // Save one velocity vector
+    double *vz = malloc(B * sizeof(double));  // Save one velocity vector
+
+    double *Px = malloc(B * sizeof(double));  // Corresponding FFT vector
+    double *Py = malloc(B * sizeof(double));  // Corresponding FFT vector
+    double *Pz = malloc(B * sizeof(double));  // Corresponding FFT vector
+
+
+    fft_freq(freq, dt, B);  // Corresponding frequencies to powerspectra
+    for(int i = 0; i<N; i++){
+        /* Save to vector v */
+        for(int j = 0; j<B; j++){
+            if(j<timesteps){
+                vx[j] = Vx[j][i];
+                vy[j] = Vy[j][i];
+                vz[j] = Vz[j][i];
+            }else{
+                vx[j] = 0.0;
+                vy[j] = 0.0;
+                vz[j] = 0.0;
+            }
+        }
+        /* Calculate FFT */
+        powerspectrum(vx, Px, B);
+        powerspectrum(vy, Pz, B);
+        powerspectrum(vz, Pz, B);
+        /* Save to H matrix */
+        for(int j = 0; j<B; j++){
+            P[j] += Px[j] + Py[j] + Pz[j];
+        }
+    }
+
+    /* Calculate average */
+    for(int j = 0; j<B; j++){
+        P[j] /= (double)N;
+    }
+    /* Calculate powerspectrum of Powerspectrum */
+    fft(P, fast_phi, B);
+    /* Square root since we want fourier transform of power spectrum, not powerspectrum. */
+    for(int j = 0; j<B; j++){
+        fast_phi[j] = fast_phi[j];
+    }
+
+    free(vx); vx=NULL; free(vy); vy=NULL; free(vz); vz=NULL;
+    free(Px); Px=NULL; free(Px); Py=NULL; free(Pz); Pz=NULL;
+
+}
+
 
 /* Calculate the instantaneous temperature based on kinetic energy */
 double calc_temp(int N, double m, double v[][3])

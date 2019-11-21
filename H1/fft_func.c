@@ -47,6 +47,42 @@ void powerspectrum(double *data, double *powspec_data, int n) /* input data, out
 	gsl_fft_real_workspace_free(work);
 }
 
+void fft(double *data, double *powspec_data, int n){
+	/* Declaration of variables */
+	int i;
+	double complex_coefficient[2*n]; // array for the complex fft data
+	double data_cp[n]; 
+
+	/*make copy of data to avoid messing with data in the transform*/
+	for (i = 0; i < n; i++)	{
+		data_cp[i] = data[i];
+	}
+
+	/*Declare wavetable and workspace for fft*/
+	gsl_fft_real_wavetable *real;
+	gsl_fft_real_workspace *work;
+
+	/*Allocate space for wavetable and workspace for fft*/
+	work = gsl_fft_real_workspace_alloc(n);
+	real = gsl_fft_real_wavetable_alloc(n);
+
+	/*Do the fft*/
+	gsl_fft_real_transform(data_cp, 1, n, real, work);	
+	
+	/*Unpack the output into array with alternating real and imaginary part*/	
+	gsl_fft_halfcomplex_unpack(data_cp, complex_coefficient,1,n);
+	
+	/*fill the output powspec_data with the powerspectrum */
+	for (i = 0; i < n; i++)	{
+		powspec_data[i] = (complex_coefficient[2*i]+complex_coefficient[2*i+1])/n; 
+	}
+	
+	/*Free memory of wavetable and workspace*/
+	gsl_fft_real_wavetable_free(real);
+	gsl_fft_real_workspace_free(work);
+
+}
+
 
 /* Shifts the input powspec_data to center the 0 frequency */
 void powerspectrum_shift(double *powspec_data, int n) /* input data, timestep, number of timesteps */

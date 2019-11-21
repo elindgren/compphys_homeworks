@@ -13,8 +13,9 @@
 #include "alpotential.h"
 #include "utils.h"
 #include "fft_func.h"
-#define N 256          // Number of atoms
-#define timesteps 500 // Number of timesteps for velocity Verlet
+#define N 256         // Number of atoms
+#define eq_timesteps 2500 // Number of equilibration timesteps
+#define prod_timesteps 500 // Number of production
 
 /*
  * Encapsulates the velocity Verlet algorithm
@@ -22,7 +23,8 @@
  * Modified for task 5 to calculate the mean squared displacement as a function of time
  */
 
-double calc_ek(double v[][3], double m_al){
+double calc_ek(double v[][3], double m_al)
+{
     /* Calculate the kinetic energy - T = 0.5*m*|v|^2 */
     double ek = 0;
     double abs_v_sq = 0;
@@ -38,40 +40,32 @@ double calc_ek(double v[][3], double m_al){
     return ek;
 }
 
-void calc_powerspectrum(double H_all[][N], double freq[], double x_vel_pad[][N], double dt, int B){
-    double h[B];  // Vector to hold raw data for a single particle
-    double H[B];  // FFT of one particle
-
-    fft_freq(freq, dt, B);  // Corresponding frequencies to powerspectra
-    for(int i=0; i<N; i++){
-        /* Calculate power spectrum for one particle */
-        for(int j=0; j<B; j++){
-            h[j] = x_vel_pad[j][i];  // Extract velocities for a single particle
-        }
-        powerspectrum(h, H, B);  // Powerspectrum
-        // Write powerspectrum to H_all
-        for(int j=0; j<B; j++){
-            H_all[j][i] = H[j];  // Write spectrum for particle i
-        }
-        /* Perform inverse FFT */
-        for(int l=0; l<timesteps+1; l++){
-            for(int m=0; m<N; m++){
-                // Cl
-            }
-        }
-    }
-}
-
 
 void control(double x[][3], double v[][3], double a[][3], double F[][3], double *a_lat, int ndim, int Nc, double dt, double m_al, int equilibrate, double Teq, double Peq, char label[])
 {
+    /* Declarations */
     int i, j, k; // loop variables
 
-    double Ep[timesteps + 1]; // Potential energy
-    double Ek[timesteps + 1]; // Kinetic energy
-    double Et[timesteps + 1]; // Total energy
+    int timesteps;
+    if(equilibrate){
+        timesteps = eq_timesteps;
+    }else{
+        timesteps = prod_timesteps;
+    }
 
-    // File IO
+    double(*X)[N] = malloc(sizeof(double[timesteps + 1][N])); // Position in x-dimension
+    double(*Y)[N] = malloc(sizeof(double[timesteps + 1][N]));
+    double(*Z)[N] = malloc(sizeof(double[timesteps + 1][N]));
+
+    double(*Vx)[N] = malloc(sizeof(double[timesteps + 1][N])); // Velocity in y-dimension
+    double(*Vy)[N] = malloc(sizeof(double[timesteps + 1][N]));
+    double(*Vz)[N] = malloc(sizeof(double[timesteps + 1][N]));
+
+    double *Ep = malloc(sizeof(double[timesteps + 1])); // Potential energy
+    double *Ek = malloc(sizeof(double[timesteps + 1])); // Kinetic energy
+    double *Et = malloc(sizeof(double[timesteps + 1])); // Total energy
+
+    /* File IO */
     FILE *f;
     double t;
     char filename[50] = "";
@@ -81,50 +75,38 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
     double T, P;                 // Pressure and temperature
     double alpha_t, alpha_p;     // Scaling parameters for equilibration
     double timedecay = 250 * dt; // Timedecay
-    double Temperatures[timesteps + 1];
-    double Pressures[timesteps + 1];
-    double Lat_params[timesteps + 1];
-    double positions[timesteps + 1][ndim];
+    double *Temperatures = malloc(sizeof(double[timesteps + 1]));
+    double *Pressures = malloc(sizeof(double[timesteps + 1]));
+    double *Lat_params = malloc(sizeof(double[timesteps + 1]));
+    
     int p = 0;  // Particle to save position for
 
     /* Task 5 */
-    double MSD[timesteps + 1]; // Mean squared displacement as measured from the start point
-    double *x_pos[timesteps + 1];   // Matrix containing all particle x positions
-
-    for (i = 0; i < timesteps + 1; i++){
-        x_pos[i] = (double *)malloc(N * sizeof(double));
-        for (j = 0; j < N; j++){
-            x_pos[i][j] = 0.0;
-        }
-    }
+    double *MSD = malloc((timesteps+1) * sizeof(double));    // Mean squared displacement as measured from the start point
 
     /* Task 6 */
-    double phi[timesteps + 1];      // Time velocity correlation function - not defined for last corr_offset values.
-    double (*x_vel)[N] = malloc(sizeof(double [timesteps+1][N]));   // Matrix containing all particle x velocities
+    double *Phi  = malloc(sizeof(double[timesteps + 1]));      // Time velocity correlation function - not defined for last corr_offset values.
 
     /* Task 7 */
-    int B = 2*(timesteps+1);  // N in the notation in the notebook
-    double freq[B];
-    double (*x_vel_pad)[N] = malloc(sizeof(double [B][N]));  // Same as x_vel, but padded with N+1 zeros at the end
-    double (*H_all)[N] = malloc(sizeof(double [B][N]));  // Fourier transform of velocity for all particles
+    double *freq = malloc(2*(timesteps+1) * sizeof(double)); 
+    double *Powerspectrum = malloc(2*(timesteps+1) * sizeof(double));
+    double *fast_Phi = malloc(2*(timesteps+1) * sizeof(double));
 
     /* Calculate energies for initial conditions */
     Ep[0] = get_energy_AL(x, Nc * *a_lat, N); // Supercell length is Nc*a_lat
     Ek[0] = calc_ek(v, m_al);
     Et[0] = Ep[0] + Ek[0]; // Total energy is sum of kinetic and potential
 
-    /* Save initial postion for particle p */
-   
-    for (j = 0; j < ndim; j++)
-    {
-        positions[0][j] = x[0][j];
-    }
-    
     /* Save initial positions and velocities for particles */
     for (j = 0; j < N; j += 1)
-    {   
-        x_pos[0][j] = x[j][0];
-        x_vel[0][j] = v[j][0]; // We only take x direction
+    {
+        X[0][j] = x[j][0];
+        Y[0][j] = x[j][1];
+        Z[0][j] = x[j][2];
+
+        Vx[0][j] = v[j][0];
+        Vy[0][j] = v[j][1];
+        Vz[0][j] = v[j][2];
     }
 
     /* The velocity Verlet algorithm */
@@ -174,22 +156,19 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
         Ek[i] = calc_ek(v, m_al);
         Et[i] = Ep[i] + Ek[i]; // Total energy is sum of kinetic and potential
 
-        /* Task 3 - Save the position of particle p */
-        for (j = 0; j < ndim; j++)
+        /* Task 3 - Save positions and velocities */
+        for (j = 0; j < N; j++)
         {
-            positions[i][j] = x[p][j];
+            X[i][j] = x[j][0];
+            Y[i][j] = x[j][1];
+            Z[i][j] = x[j][2];
+
+            Vx[i][j] = v[j][0];
+            Vy[i][j] = v[j][1];
+            Vz[i][j] = v[j][2];
         }
 
-        /* Task 6 - Calculate velocity correlation function */
-        /* Save current positions and velocities for autocorrelation functions */
-        for (j = 0; j < N; j += 1)
-        {
-            x_pos[i][j] = x[j][0];
-            x_vel[i][j] = v[j][0];
-            x_vel_pad[i][j] = v[j][0];
-        }
-
-        // Set scaling parameters
+        /* Set scaling parameters */
         T = calc_temp(N, m_al, v);
         Temperatures[i] = T;
         P = calc_pres(N, m_al, v, x, Nc * *a_lat);
@@ -220,27 +199,25 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
     }
 
     /* Calculate velocity correlation function */
-    if (!equilibrate){
-        // printf("Calculating MSD function \n");
-        // calc_corr_function(timesteps + 1, N, MSD, x_pos);  // Task 5
+    if (!equilibrate)
+    {
+        printf("Calculating MSD function \n");
+        mean_squared_displacement(timesteps+1, N, MSD, X, Y, Z);  // Task 5
         printf("Calculating velocity correlation function \n");
-        calc_corr_function(timesteps + 1, N, phi, x_vel);  // Task 6
+        velocity_correlation(timesteps+1, N, Phi, Vx, Vy, Vz); // Task 6
+        printf("Calculating power spectrum function \n");
+        fast_velocity_correlation(timesteps+1, N, fast_Phi, Powerspectrum, freq, Vx, Vy, Vz, dt);  // Task 7
     }
 
-    /* Task 7 - Fourier Transform velocities */
-    // Using FFT-module from E1 
-    if (!equilibrate){
-        calc_powerspectrum(H_all, freq, x_vel_pad, dt, B);
-    }
 
     strcat(dir, label);
     strcat(filename, dir);
     if (equilibrate)
-    {   
+    {
         /* Equilibration run */
         printf("Saving equilibration \n");
 
-        filename[0] = '\0';  // Empty filename string
+        filename[0] = '\0'; // Empty filename string
         strcat(filename, dir);
         strcat(filename, "/equilibration.dat");
         f = fopen(filename, "w");
@@ -256,8 +233,8 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
         /* Production run */
         printf("Saving production \n");
 
-        // /* Save temperature, pressure and latice constant */   
-        filename[0] = '\0';  // Empty filename string
+        // /* Save temperature, pressure and latice constant */
+        filename[0] = '\0'; // Empty filename string
         strcat(filename, dir);
         strcat(filename, "/temp_pres_lat.dat");
         f = fopen(filename, "w");
@@ -269,7 +246,7 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
         fclose(f);
 
         // /* Save energies to file */
-        filename[0] = '\0';  // Empty filename string
+        filename[0] = '\0'; // Empty filename string
         strcat(filename, dir);
         strcat(filename, "/vv_energies.dat");
         f = fopen(filename, "w");
@@ -281,19 +258,19 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
         fclose(f);
 
         /* Save position of particle p and MSD to file */
-        filename[0] = '\0';  // Empty filename string
+        filename[0] = '\0'; // Empty filename string
         strcat(filename, dir);
         strcat(filename, "/MSD.dat");
         f = fopen(filename, "w");
         for (i = 0; i < timesteps + 1; i++)
         {
             t = i * dt;
-            fprintf(f, "%.4f \t %.4f \t %.4f \t %.4f \t %.4f \n", t, positions[i][0], positions[i][1], positions[i][2], MSD[i]);
+            fprintf(f, "%.4f \t %.4f \t %.4f \t %.4f \t %.4f \n", t, X[i][p], Y[i][p], Z[i][p], MSD[i]);
         }
         fclose(f);
 
         /* Save velocity correlation function to file */
-        filename[0] = '\0';  // Empty filename string
+        filename[0] = '\0'; // Empty filename string
         strcat(filename, dir);
         strcat(filename, "/vel_corr.dat");
         f = fopen(filename, "w");
@@ -301,25 +278,28 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
         for (i = 0; i < timesteps + 1; i++)
         {
             t = i * dt;
-            fprintf(f, "%.4f \t %.4f \n", t, phi[i]);
+            fprintf(f, "%.4f \t %.4f \n", t, Phi[i]);
         }
         fclose(f);
 
         /* Save powerspectrum of velocity function to file */
-        filename[0] = '\0';  // Empty filename string
+        filename[0] = '\0'; // Empty filename string
         strcat(filename, dir);
         strcat(filename, "/vel_powspec.dat");
         f = fopen(filename, "w");
         for (i = 0; i < timesteps + 1; i++)
         {
-            fprintf(f, "%.4f ", freq[i]);
-            for(j=0; j<N; j++){
-                fprintf(f, "\t %.4f ", H_all[i][j]);
-            }
-            fprintf(f, " \n ");
+            fprintf(f, "%.4f \t %.4f \t %.4f \n", freq[i], Powerspectrum[i], fast_Phi[i]);
         }
         fclose(f);
     }
+
+    /* Free allocated memory */
+    free(X); X = NULL; free(Y); Y = NULL; free(Z); Z = NULL;
+    free(Vx); Vx = NULL; free(Vy); Vy = NULL; free(Vz); Vz = NULL;
+    free(Ep); Ep = NULL; free(Ek); Ek = NULL; free(Et); Et = NULL;
+    free(Temperatures); Temperatures = NULL; free(Pressures); Pressures = NULL; free(Lat_params); Lat_params = NULL;
+    free(freq); freq = NULL; free(Powerspectrum); Powerspectrum = NULL; free(fast_Phi); fast_Phi = NULL;
 }
 
 /* Main program */
@@ -344,7 +324,7 @@ int main()
     double Teq = 773.15;
     double Peq = 1.0 / 1.602 * 0.000001;
     int equilibrate;
-    char label[] = "solid";  // Label for the current production run phase
+    char label[] = "solid"; // Label for the current production run phase
 
     /* Code for generating a uniform random number between 0 and 1. srand should only be called once. */
     srand(time(NULL)); // Set the seed for rand
@@ -381,11 +361,10 @@ int main()
     // equilibrate = 1;
     // control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
     /* Equilibration 2 to cool down system to 700 K*/
-    equilibrate = 1;  
+    equilibrate = 1;
     control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq, label);
 
     /* Production */
     equilibrate = 0;
     control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq, label);
 }
-
