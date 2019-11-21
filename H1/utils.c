@@ -56,7 +56,7 @@ double energy_to_volume(int N, double v_start, double v_end, int N_points, doubl
  * M is the total number of timesteps.
  * corr_offset is the offset at which the correlation function is to be calculated.
  */
-void calc_corr_function(int M, int N, double phi[], double **A)
+void calc_corr_function(int M, int N, double phi[], double A[][N])
 {
     // Initialize variables
     int l, m, n; // Iteration variables

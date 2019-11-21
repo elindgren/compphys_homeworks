@@ -38,46 +38,28 @@ double calc_ek(double v[][3], double m_al){
     return ek;
 }
 
-void velocity_verlet_step(double x[][3], double v[][3], double a[][3], double F[][3], double m_al, double dt, double Nc, double *a_lat){
-    /* v(t+dt/2) */
-    for (int j = 0; j < N; j += 1)
-    {
-        for (int k = 0; k < 3; k += 1)
-        {
-            v[j][k] += dt / 2 * a[j][k];
+void calc_powerspectrum(double H_all[][N], double freq[], double x_vel_pad[][N], double dt, int B){
+    double h[B];  // Vector to hold raw data for a single particle
+    double H[B];  // FFT of one particle
+
+    fft_freq(freq, dt, B);  // Corresponding frequencies to powerspectra
+    for(int i=0; i<N; i++){
+        /* Calculate power spectrum for one particle */
+        for(int j=0; j<B; j++){
+            h[j] = x_vel_pad[j][i];  // Extract velocities for a single particle
+        }
+        powerspectrum(h, H, B);  // Powerspectrum
+        // Write powerspectrum to H_all
+        for(int j=0; j<B; j++){
+            H_all[j][i] = H[j];  // Write spectrum for particle i
+        }
+        /* Perform inverse FFT */
+        for(int l=0; l<timesteps+1; l++){
+            for(int m=0; m<N; m++){
+                // Cl
+            }
         }
     }
-
-    /* q(t+dt) */
-    for (int j = 0; j < N; j += 1)
-    {
-        for (int k = 0; k < 3; k += 1)
-        {
-            x[j][k] += dt * v[j][k];
-        }
-    }
-
-    /* a(t+dt) */
-    get_forces_AL(F, x, Nc * *a_lat, N); // Supercell length is Nc*a_lat
-    for (int j = 0; j < N; j += 1)
-    {
-        for (int k = 0; k < 3; k += 1)
-        {
-            a[j][k] = F[j][k] / m_al;
-            // printf("a[0]: %.2f \t a[1]: %.2f \t  a[2]: %.2f \n", a[j][0], a[j][1], a[j][2]);
-            // a[j][k] = 0.0;
-        }
-    }
-
-    /* v(t+dt) */
-    for (int j = 0; j < N; j += 1)
-    {
-        for (int k = 0; k < 3; k += 1)
-        {
-            v[j][k] += dt / 2 * a[j][k];
-        }
-    }
-
 }
 
 
@@ -88,9 +70,6 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
     double Ep[timesteps + 1]; // Potential energy
     double Ek[timesteps + 1]; // Kinetic energy
     double Et[timesteps + 1]; // Total energy
-    
-    double ek = 0;  // Temp variable to hold kinetic energy
-    double abs_v_sq;  // Temp variable to hold absolute velocity squared
 
     // File IO
     FILE *f;
@@ -106,7 +85,7 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
     double Pressures[timesteps + 1];
     double Lat_params[timesteps + 1];
     double positions[timesteps + 1][ndim];
-     int p = 0;  // Particle to save position for
+    int p = 0;  // Particle to save position for
 
     /* Task 5 */
     double MSD[timesteps + 1]; // Mean squared displacement as measured from the start point
@@ -121,31 +100,13 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
 
     /* Task 6 */
     double phi[timesteps + 1];      // Time velocity correlation function - not defined for last corr_offset values.
-    double *x_vel[timesteps + 1];   // Matrix containing all particle x velocities
-
-    for (i = 0; i < timesteps + 1; i++){
-        x_vel[i] = (double *)malloc(N * sizeof(double));
-        for (j = 0; j < N; j++){
-            x_vel[i][j] = 0.0;
-        }
-    }
+    double (*x_vel)[N] = malloc(sizeof(double [timesteps+1][N]));   // Matrix containing all particle x velocities
 
     /* Task 7 */
     int B = 2*(timesteps+1);  // N in the notation in the notebook
-    double h[B];  // Vector to hold raw data for a single particle
-    double H[B];  // FFT of one particle
     double freq[B];
-    double *x_vel_pad[B];  // Same as x_vel, but padded with N+1 zeros at the end
-    double *H_all[B];  // Fourier transform of velocity for all particles
-
-    for (i = 0; i < B; i++){
-        x_vel_pad[i] = (double *)malloc(N * sizeof(double));
-        H_all[i] = (double *)malloc(N * sizeof(double));
-        for (j = 0; j < N; j++){
-            x_vel_pad[i][j] = 0.0;
-            H_all[i][j] = 0.0;
-        }
-    }
+    double (*x_vel_pad)[N] = malloc(sizeof(double [B][N]));  // Same as x_vel, but padded with N+1 zeros at the end
+    double (*H_all)[N] = malloc(sizeof(double [B][N]));  // Fourier transform of velocity for all particles
 
     /* Calculate energies for initial conditions */
     Ep[0] = get_energy_AL(x, Nc * *a_lat, N); // Supercell length is Nc*a_lat
@@ -269,26 +230,7 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
     /* Task 7 - Fourier Transform velocities */
     // Using FFT-module from E1 
     if (!equilibrate){
-        fft_freq(freq, dt, B);  // Corresponding frequencies to powerspectra
-        for(i=0; i<N; i++){
-            /* Calculate power spectrum for one particle */
-            for(j=0; j<B; j++){
-                h[j] = x_vel_pad[j][i];  // Extract velocities for a single particle
-            }
-            powerspectrum(h, H, B);  // Powerspectrum
-            // Write powerspectrum to H_all
-            for(j=0; j<B; j++){
-                H_all[j][i] = H[j];  // Write spectrum for particle i
-            }
-            /* Perform inverse FFT */
-            for(int l=0; l<timesteps+1; l++){
-                double Cl = 0;
-                for(int m=0; m<N; m++){
-                    // Cl
-                }
-            }
-        }
-
+        calc_powerspectrum(H_all, freq, x_vel_pad, dt, B);
     }
 
     strcat(dir, label);
