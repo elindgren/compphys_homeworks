@@ -1,0 +1,126 @@
+\input{template_files/packages}
+
+\title{H1a: Classical scattering by a central potential}
+\author{Emil Chalmers and Emilia Chalmers}
+\date{\today}
+
+\begin{document}
+
+\input{template_files/titlepage}
+
+\section*{Introduction}
+
+Already in antiquity people studied the effect of particles impinging on other
+particles. Since then the art has developed \ldots\
+(\emph{If you like to do so, you may take the opportunity to put the  methods
+in a wider perspective here.}) Here is a random reference.\cite{lamport94}
+
+\section*{Problem 1}
+As a starting point we first look at scattering from a hard-sphere
+potential. We also consider the Lennard--Jones potential, which is depicted
+in Figure~\ref{fig1}. (\emph{Always refer to Figures in the text.})
+
+\begin{figure}[!ht]
+\begin{center}
+  \includegraphics[width=0.7\textwidth]{template_files/LJ} 
+  \caption{The Lennard--Jones potential.
+  Make sure you label and have units on all axes! Also make sure that labels etc.\
+  are legible and that, if you print in black and white, that you use different line
+  styles when required to differentiate between curves. In \textsc{matlab}
+  you can export any figure to an .eps file from File $\rightarrow$
+  Export\ldots\ in the Figure window.}
+  \label{fig1}
+\end{center}
+\end{figure}
+  
+\section*{Problem 2}
+
+In the following we give an example of how to produce a table.
+Use the code for Table~\ref{tab1} as a template.
+
+\begin{table}[!ht]
+  \begin{center}
+    \caption{A dummy table}
+    \begin{tabular}{l|c|c}\hline\hline
+      \textbf{Col.~1} & \textbf{Col.~2} & \textbf{Col.~3} \\ \hline
+      the & quick & brown \\ 
+      fox & jumps & over \\ 
+      the & lazy  & dog \\ 
+      \hline\hline
+    \end{tabular}
+    \label{tab1}
+  \end{center}
+\end{table}
+
+\section*{Problem 3}
+
+If you find some part of the code particularly interesting you may 
+include it in the text, otherwise it should be included in the appedix.
+If you do want to include code the following commands will print
+the text directly, with no \LaTeX~commands executed:
+
+\begin{lstlisting}[language=matlab]
+% Hello world ten times in MATLAB
+for i = 1 : 10
+  fprintf('Hello world %d!\n',i);
+end
+\end{lstlisting}
+
+\begin{lstlisting}[language=python]
+# Hello world ten times in Python
+for i in range(10):
+  print 'Hello world %d!' % i
+\end{lstlisting}
+
+\section*{Problem 4}
+At some point it may be appropriate to include equations. It is done in the
+following way:
+
+\begin{equation}
+  V(r) = 4\epsilon \left[ \left( \frac{\sigma}{r} \right)^{12} - 
+    \left(\frac{\sigma}{r} \right)^{6} \right]
+\end{equation}
+
+Do number and reference all your equations.
+
+\section*{Concluding discussion}
+
+Use your favourite flavor of \LaTeX{} to compile the file:
+\begin{verbatim}
+xelatex template.tex
+pdflatex template.tex
+latex template.tex
+\end{verbatim}
+should all work.
+If you use \verb+pdflatex+ or \verb+xelatex+, included figures need to be in
+\verb+pdf+, \verb+jpg+, or \verb+png+ format. If you want to include eps
+figures, you can easily convert them to \verb+pdf+ using the command
+\begin{verbatim}
+ps2pdf -dEPSCrop figure.eps figure.pdf
+\end{verbatim}
+
+\begin{thebibliography}{69}
+\bibitem{lamport94} Leslie Lamport, \emph{\LaTeX: A Document Preparation
+System}. Addison Wesley, Massachusetts, 2nd Edition, 1994.
+\end{thebibliography}
+
+\newpage
+
+\appendix
+
+\section{Source Code}
+
+Include all source code here in the appendix. Keep the code formatting clean,
+use indentation, and comment your code to make it easy to understand. Also,
+break lines that are too long. (Keep them under 80 characters!)
+
+\subsection{Calculating pi using matlab: \texttt{pi.m}}
+\lstinputlisting[language=matlab,numbers=left]{template_files/pi.m}
+
+\subsection{Calculating pi using python: \texttt{pi.py}}
+\lstinputlisting[language=python,numbers=left]{template_files/pi.py}
+
+\subsection{Calculating pi using C: \texttt{pi.c}}
+\lstinputlisting[language=c,numbers=left]{template_files/pi.c}
+
+\end{document}
