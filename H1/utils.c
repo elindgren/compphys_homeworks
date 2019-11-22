@@ -160,6 +160,7 @@ void fast_velocity_correlation(int timesteps, int N, double fast_phi[], double P
                 vy[j] = Vy[j][i];
                 vz[j] = Vz[j][i];
             }else{
+                /* Pad with zeros */
                 vx[j] = 0.0;
                 vy[j] = 0.0;
                 vz[j] = 0.0;

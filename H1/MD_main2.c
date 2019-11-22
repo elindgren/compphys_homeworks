@@ -1,7 +1,5 @@
 /*
- MD_main.c
- 
- Created by Anders Lindman on 2013-10-31.
+ MD_main2.c
  */
 
 #include <stdio.h>
@@ -14,7 +12,7 @@
 #include "utils.h"
 #include "fft_func.h"
 #define N 256         // Number of atoms
-#define eq_timesteps 2700 // Number of equilibration timesteps
+#define eq_timesteps 10000     // Number of equilibration timesteps
 #define prod_timesteps 500 // Number of production
 
 /*
@@ -74,7 +72,7 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
     /* Task 3 */
     double T, P;                 // Pressure and temperature
     double alpha_t, alpha_p;     // Scaling parameters for equilibration
-    double timedecay = 250 * dt; // Timedecay
+    double timedecay = 100 * dt; // Timedecay
     double *Temperatures = malloc(sizeof(double[timesteps + 1]));
     double *Pressures = malloc(sizeof(double[timesteps + 1]));
     double *Lat_params = malloc(sizeof(double[timesteps + 1]));
@@ -321,10 +319,10 @@ int main()
     /* Task 2 */
     int ndim = 3;
     printf("Equilibrium lattice constant: %.4f Å. \n", a_lat);
-    double Teq = 973.15;
+    double Teq = 773.15;
     double Peq = 1.0 / 1.602 * 0.000001;
     int equilibrate;
-    char label[] = "liquid"; // Label for the current production run phase
+    char label[] = "solid"; // Label for the current production run phase
 
     /* Code for generating a uniform random number between 0 and 1. srand should only be called once. */
     srand(time(NULL)); // Set the seed for rand
@@ -358,9 +356,9 @@ int main()
         }
     }
     /* Equilibration 1 to melt system */
-    equilibrate = 1;
-    control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
-    /* Equilibration 2 to cool down system to 700 K*/
+    // equilibrate = 1;
+    // control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
+    // /* Equilibration 2 to cool down system to 700 K*/
     equilibrate = 1;
     control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq, label);
 

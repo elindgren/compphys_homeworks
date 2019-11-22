@@ -2,6 +2,7 @@
 	fft_func.c 	
 	Program with powerspectrum from (fast) discrete Fourier transform  
 	Created by Martin Gren on 2014-10-22
+	Edited by Simon Pettersson Fors and Eric Lindgren 2019-11-22
 */
 #include <stdio.h>
 #include <math.h>
