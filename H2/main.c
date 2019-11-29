@@ -46,7 +46,7 @@ double getTheta(double R1[], double R2[]){
     return acos(r1_dot_r2 / (r1*r2));
 }
 
-void metropolis(int N, double d, double alpha, double r1[], double r2[], double r[], double rho[], double theta[], double P_theta[], double E[]){
+void metropolis(int N, double d, double alpha, double r1[], double r2[], double rho[][3], double theta[], double P_theta[], double E[]){
     /* Performs a MCMC sampling of the configuration space */
 
     /* Metropolis variables */
@@ -99,8 +99,9 @@ void metropolis(int N, double d, double alpha, double r1[], double r2[], double 
         }   
 
         /* Calculate P */
-        r[steps] = sqrt( r1[0]*r1[0] + r1[1]*r1[1] + r1[2]*r1[2] );  // TODO - calculate correctly
-        rho[steps] = trialWavefunction(alpha, r1, r2)*trialWavefunction(alpha, r1, r2);
+        rho[steps][0] = sqrt( r1[0]*r1[0] + r1[1]*r1[1] + r1[2]*r1[2] );  // TODO - calculate correctly
+        rho[steps][1] = sqrt( r2[0]*r2[0] + r2[1]*r2[1] + r2[2]*r2[2] );  // TODO - calculate correctly
+        rho[steps][2] = trialWavefunction(alpha, r1, r2)*trialWavefunction(alpha, r1, r2);
 
         /* Calculate theta */
         theta[steps] = getTheta(r1, r2);
@@ -130,7 +131,7 @@ void task1(){
     double *r1 = malloc(3 * sizeof(double));  // Position electron 1
     double *r2 = malloc(3 * sizeof(double));  // Position electron 2
     double *r = malloc(n_steps * sizeof(double));  // Distance from the origin - for rho(r)
-    double *rho = malloc(n_steps * sizeof(double));  // Sampled probabilities
+    double (*rho)[3] = malloc(sizeof(double[n_steps][3]));  // Sampled probabilities
     double *theta = malloc(n_steps * sizeof(double));  // Sampled values of theta
     double *P_theta = malloc(n_steps * sizeof(double));  // Probability distribution of theta
     double *E = malloc(n_steps * sizeof(double));  // Sampled energies
@@ -152,12 +153,15 @@ void task1(){
     }
 
     /****** Metropolis ******/
-    metropolis(n_steps, d, alpha, r1, r2, r, rho, theta, P_theta, E);
+    metropolis(n_steps, d, alpha, r1, r2, rho, theta, P_theta, E);
 
     /* Save results */
     f = fopen("task1/rho.dat", "w");
     for(int i=0; i<n_steps; i++){
-        fprintf(f, "%.8f \t %.8f \n", r[i], rho[i]);
+        for(int j=0; j<3; j++){
+            fprintf(f, "%.8f \t", rho[i][j]);   
+        }
+        fprintf(f, "\n");  
     }
     fclose(f);
 
