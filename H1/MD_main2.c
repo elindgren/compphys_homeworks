@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <omp.h>
 #include "initfcc.h"
 #include "alpotential.h"
 #include "utils.h"
@@ -200,7 +201,6 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
     }
 
     /* Calculate velocity correlation function */
-    /* Un-comment to include calculations
     if (!equilibrate)
     {   
         omp_set_num_threads(8);
@@ -226,7 +226,6 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
             }
         }
     }
-    */
 
     strcat(dir, label);
     strcat(filename, dir);
@@ -364,10 +363,10 @@ int main()
     /* Task 2 */
     int ndim = 3;
     printf("Equilibrium lattice constant: %.4f Å. \n", a_lat);
-    double Teq = 773.15;
+    double Teq = 973.15;
     double Peq = 1.0 / 1.602 * 0.000001;
     int equilibrate;
-    char label[] = "solid"; // Label for the current production run phase
+    char label[] = "liquid"; // Label for the current production run phase
 
     /* Code for generating a uniform random number between 0 and 1. srand should only be called once. */
     srand(time(NULL)); // Set the seed for rand
@@ -401,8 +400,8 @@ int main()
         }
     }
     /* Equilibration 1 to melt system */
-    //equilibrate = 1;
-    //control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
+    equilibrate = 1;
+    control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
     /* Equilibration 2 to cool down system to 700 K*/
     equilibrate = 1;
     control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq, label);
