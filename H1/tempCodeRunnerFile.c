@@ -1,1 +1,2 @@
-s
+equilibrate = 1;
+    // co
