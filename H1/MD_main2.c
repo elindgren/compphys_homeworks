@@ -11,9 +11,9 @@
 #include "alpotential.h"
 #include "utils.h"
 #include "fft_func.h"
-#define N 256         // Number of atoms
-#define eq_timesteps 10000     // Number of equilibration timesteps
-#define prod_timesteps 1000 // Number of production
+#define N 256              // Number of atoms
+#define eq_timesteps 20000 // Number of equilibration timesteps
+#define prod_timesteps 1   // Number of production
 
 /*
  * Encapsulates the velocity Verlet algorithm
@@ -38,16 +38,18 @@ double calc_ek(double v[][3], double m_al)
     return ek;
 }
 
-
 void control(double x[][3], double v[][3], double a[][3], double F[][3], double *a_lat, int ndim, int Nc, double dt, double m_al, int equilibrate, double Teq, double Peq, char label[])
 {
     /* Declarations */
     int i, j, k; // loop variables
 
     int timesteps;
-    if(equilibrate){
+    if (equilibrate)
+    {
         timesteps = eq_timesteps;
-    }else{
+    }
+    else
+    {
         timesteps = prod_timesteps;
     }
 
@@ -70,25 +72,26 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
     char dir[100] = "datafiles/";
 
     /* Task 3 */
-    double T, P;                 // Pressure and temperature
-    double alpha_t, alpha_p;     // Scaling parameters for equilibration
-    double timedecay = 100 * dt; // Timedecay
+    double T, P;                      // Pressure and temperature
+    double alpha_t, alpha_p;          // Scaling parameters for equilibration
+    double timedecay_temp = 250 * dt; // Timedecay for temperature scaling
+    double timedecay_pres = 500 * dt; // Timedecay for pressure scaling
     double *Temperatures = malloc(sizeof(double[timesteps + 1]));
     double *Pressures = malloc(sizeof(double[timesteps + 1]));
     double *Lat_params = malloc(sizeof(double[timesteps + 1]));
-    
-    int p = 0;  // Particle to save position for
+
+    int p = 0; // Particle to save position for
 
     /* Task 5 */
-    double *MSD = malloc((timesteps+1) * sizeof(double));    // Mean squared displacement as measured from the start point
+    double *MSD = malloc((timesteps + 1) * sizeof(double)); // Mean squared displacement as measured from the start point
 
     /* Task 6 */
-    double *Phi  = malloc(sizeof(double[timesteps + 1]));      // Time velocity correlation function - not defined for last corr_offset values.
+    double *Phi = malloc(sizeof(double[timesteps + 1])); // Time velocity correlation function - not defined for last corr_offset values.
 
     /* Task 7 */
-    double *freq = malloc(2*(timesteps+1) * sizeof(double)); 
-    double *Powerspectrum = malloc(2*(timesteps+1) * sizeof(double));
-    double *fast_Phi = malloc(2*(timesteps+1) * sizeof(double));
+    double *freq = malloc(2 * (timesteps + 1) * sizeof(double));
+    double *Powerspectrum = malloc(2 * (timesteps + 1) * sizeof(double));
+    double *fast_Phi = malloc(2 * (timesteps + 1) * sizeof(double));
 
     /* Calculate energies for initial conditions */
     Ep[0] = get_energy_AL(x, Nc * *a_lat, N); // Supercell length is Nc*a_lat
@@ -173,8 +176,8 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
         Pressures[i] = P;
         if (equilibrate)
         {
-            alpha_t = calc_temp_scale(dt, timedecay, Teq, T);
-            alpha_p = calc_pres_scale(dt, timedecay, Peq, P);
+            alpha_t = calc_temp_scale(dt, timedecay_temp, Teq, T);
+            alpha_p = calc_pres_scale(dt, timedecay_pres, Peq, P);
         }
         else
         {
@@ -197,16 +200,17 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
     }
 
     /* Calculate velocity correlation function */
+    /* Un-comment to include calculations
     if (!equilibrate)
     {
         printf("Calculating MSD function \n");
-        mean_squared_displacement(timesteps+1, N, MSD, X, Y, Z);  // Task 5
+        mean_squared_displacement(timesteps + 1, N, MSD, X, Y, Z); // Task 5
         printf("Calculating velocity correlation function \n");
-        velocity_correlation(timesteps+1, N, Phi, Vx, Vy, Vz); // Task 6
+        velocity_correlation(timesteps + 1, N, Phi, Vx, Vy, Vz); // Task 6
         printf("Calculating power spectrum function \n");
-        fast_velocity_correlation(timesteps+1, N, fast_Phi, Powerspectrum, freq, Vx, Vy, Vz, dt);  // Task 7
+        fast_velocity_correlation(timesteps + 1, N, fast_Phi, Powerspectrum, freq, Vx, Vy, Vz, dt); // Task 7
     }
-
+    */
 
     strcat(dir, label);
     strcat(filename, dir);
@@ -293,11 +297,36 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
     }
 
     /* Free allocated memory */
-    free(X); X = NULL; free(Y); Y = NULL; free(Z); Z = NULL;
-    free(Vx); Vx = NULL; free(Vy); Vy = NULL; free(Vz); Vz = NULL;
-    free(Ep); Ep = NULL; free(Ek); Ek = NULL; free(Et); Et = NULL;
-    free(Temperatures); Temperatures = NULL; free(Pressures); Pressures = NULL; free(Lat_params); Lat_params = NULL;
-    free(freq); freq = NULL; free(Powerspectrum); Powerspectrum = NULL; free(fast_Phi); fast_Phi = NULL;
+    free(X);
+    X = NULL;
+    free(Y);
+    Y = NULL;
+    free(Z);
+    Z = NULL;
+    free(Vx);
+    Vx = NULL;
+    free(Vy);
+    Vy = NULL;
+    free(Vz);
+    Vz = NULL;
+    free(Ep);
+    Ep = NULL;
+    free(Ek);
+    Ek = NULL;
+    free(Et);
+    Et = NULL;
+    free(Temperatures);
+    Temperatures = NULL;
+    free(Pressures);
+    Pressures = NULL;
+    free(Lat_params);
+    Lat_params = NULL;
+    free(freq);
+    freq = NULL;
+    free(Powerspectrum);
+    Powerspectrum = NULL;
+    free(fast_Phi);
+    fast_Phi = NULL;
 }
 
 /* Main program */
@@ -308,7 +337,7 @@ int main()
     double X[N][3];                             // Positions for each particle - x, y, z coordinate.
     int Nc = (int)round(pow(N / 4, 1.0 / 3.0)); // Number of atoms N = 4*Nc*Nc*Nc => Nc = (N/4)^1/3 - 4 atoms per unit cell, with Nc primitive cells in each direction => in total N atoms.
     double m_al = 0.002796;                     // 27 u in our atomic units.
-    double dt = 0.0005;                          // Recommended according to MD is a few femtoseconds
+    double dt = 0.005;                          // Recommended according to MD is a few femtoseconds
 
     /* Task 1 - calculate energy for volumes in the range 64 - 68 Å^3. */
     double v_start = 64;
@@ -356,9 +385,9 @@ int main()
         }
     }
     /* Equilibration 1 to melt system */
-    // equilibrate = 1;
-    // control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
-    // /* Equilibration 2 to cool down system to 700 K*/
+    //equilibrate = 1;
+    //control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
+    /* Equilibration 2 to cool down system to 700 K*/
     equilibrate = 1;
     control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq, label);
 
