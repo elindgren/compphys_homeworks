@@ -11,9 +11,10 @@
 #include "alpotential.h"
 #include "utils.h"
 #include "fft_func.h"
+#include <omp.h>
 #define N 256         // Number of atoms
-#define eq_timesteps 10000     // Number of equilibration timesteps
-#define prod_timesteps 1000 // Number of production
+#define eq_timesteps 5000     // Number of equilibration timesteps
+#define prod_timesteps 10000 // Number of production
 
 /*
  * Encapsulates the velocity Verlet algorithm
@@ -198,13 +199,29 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
 
     /* Calculate velocity correlation function */
     if (!equilibrate)
-    {
-        printf("Calculating MSD function \n");
-        mean_squared_displacement(timesteps+1, N, MSD, X, Y, Z);  // Task 5
-        printf("Calculating velocity correlation function \n");
-        velocity_correlation(timesteps+1, N, Phi, Vx, Vy, Vz); // Task 6
-        printf("Calculating power spectrum function \n");
-        fast_velocity_correlation(timesteps+1, N, fast_Phi, Powerspectrum, freq, Vx, Vy, Vz, dt);  // Task 7
+    {   
+        omp_set_num_threads(8);
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            {
+                printf("Calculating MSD function \n");
+                mean_squared_displacement(timesteps+1, N, MSD, X, Y, Z);  // Task 5 
+                printf("Finished MSD function \n");
+            }
+            #pragma omp section
+            {
+                printf("Calculating velocity correlation function \n");
+                velocity_correlation(timesteps+1, N, Phi, Vx, Vy, Vz); // Task 6
+                printf("Finished velocity correlation function \n");
+            }
+            #pragma omp section
+            {
+                printf("Calculating power spectrum function \n");
+                fast_velocity_correlation(timesteps+1, N, fast_Phi, Powerspectrum, freq, Vx, Vy, Vz, dt);  // Task 7 
+                printf("Finished power spectrum function \n");
+            }
+        }
     }
 
 
@@ -308,7 +325,7 @@ int main()
     double X[N][3];                             // Positions for each particle - x, y, z coordinate.
     int Nc = (int)round(pow(N / 4, 1.0 / 3.0)); // Number of atoms N = 4*Nc*Nc*Nc => Nc = (N/4)^1/3 - 4 atoms per unit cell, with Nc primitive cells in each direction => in total N atoms.
     double m_al = 0.002796;                     // 27 u in our atomic units.
-    double dt = 0.0005;                          // Recommended according to MD is a few femtoseconds
+    double dt = 0.005;                          // Recommended according to MD is a few femtoseconds
 
     /* Task 1 - calculate energy for volumes in the range 64 - 68 Å^3. */
     double v_start = 64;

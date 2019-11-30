@@ -97,6 +97,9 @@ void mean_squared_displacement(int M, int N, double delta[], double X[][N], doub
     for (l = 0; l < M; l += 1)
     {   
         /* l is timelag in number of timesteps */
+        if(l%1000==0){
+            printf("\tMSD: %.2f \n", (double)l/M);
+        }
         sum = 0;
         /* For each timelag l, calculate the correlation function for this timestep for all particles n */
         for (n = 0; n < N; n++){
@@ -123,6 +126,9 @@ void velocity_correlation(int M, int N, double phi[], double Vx[][N], double Vy[
     for (l = 0; l < M; l += 1)
     {   
         /* l is timelag in number of timesteps */
+        if(l%1000==0){
+            printf("\tVelocity corr: %.2f \n", (double)l/M);
+        }
         sum = 0;
         /* For each timelag l, calculate the correlation function for this timestep for all particles n */
         for (n = 0; n < N; n++){
@@ -189,7 +195,6 @@ void fast_velocity_correlation(int timesteps, int N, double fast_phi[], double P
 
     free(vx); vx=NULL; free(vy); vy=NULL; free(vz); vz=NULL;
     free(Px); Px=NULL; free(Px); Py=NULL; free(Pz); Pz=NULL;
-
 }
 
 

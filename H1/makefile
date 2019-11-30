@@ -1,7 +1,7 @@
 
 CC = gcc
-CFLAGS = -O3 -Wall
-LIBS = -lm -lgsl -lgslcblas
+CFLAGS = -O3 -Wall -fopenmp
+LIBS = -lgomp -lm -lgsl -lgslcblas 
 
 HEADERS = initfcc.h alpotential.h utils.h fft_func.h
 OBJECTS = initfcc.o alpotential.o utils.o fft_func.o MD_main2.o 

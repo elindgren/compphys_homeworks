@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "utils.h": "c",
+        "fft_func.h": "c"
+    }
+}
