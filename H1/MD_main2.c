@@ -201,31 +201,31 @@ void control(double x[][3], double v[][3], double a[][3], double F[][3], double 
     }
 
     /* Calculate velocity correlation function */
-    if (!equilibrate)
-    {   
-        omp_set_num_threads(8);
-        #pragma omp parallel sections
-        {
-            #pragma omp section
-            {
-                printf("Calculating MSD function \n");
-                mean_squared_displacement(timesteps+1, N, MSD, X, Y, Z);  // Task 5 
-                printf("Finished MSD function \n");
-            }
-            #pragma omp section
-            {
-                printf("Calculating velocity correlation function \n");
-                velocity_correlation(timesteps+1, N, Phi, Vx, Vy, Vz); // Task 6
-                printf("Finished velocity correlation function \n");
-            }
-            #pragma omp section
-            {
-                printf("Calculating power spectrum function \n");
-                fast_velocity_correlation(timesteps+1, N, fast_Phi, Powerspectrum, freq, Vx, Vy, Vz, dt);  // Task 7 
-                printf("Finished power spectrum function \n");
-            }
-        }
-    }
+    // if (!equilibrate)
+    // {   
+    //     omp_set_num_threads(8);
+    //     #pragma omp parallel sections
+    //     {
+    //         #pragma omp section
+    //         {
+    //             printf("Calculating MSD function \n");
+    //             mean_squared_displacement(timesteps+1, N, MSD, X, Y, Z);  // Task 5 
+    //             printf("Finished MSD function \n");
+    //         }
+    //         #pragma omp section
+    //         {
+    //             printf("Calculating velocity correlation function \n");
+    //             velocity_correlation(timesteps+1, N, Phi, Vx, Vy, Vz); // Task 6
+    //             printf("Finished velocity correlation function \n");
+    //         }
+    //         #pragma omp section
+    //         {
+    //             printf("Calculating power spectrum function \n");
+    //             fast_velocity_correlation(timesteps+1, N, fast_Phi, Powerspectrum, freq, Vx, Vy, Vz, dt);  // Task 7 
+    //             printf("Finished power spectrum function \n");
+    //         }
+    //     }
+    // }
 
     strcat(dir, label);
     strcat(filename, dir);
@@ -363,10 +363,10 @@ int main()
     /* Task 2 */
     int ndim = 3;
     printf("Equilibrium lattice constant: %.4f Å. \n", a_lat);
-    double Teq = 773.15;
+    double Teq = 973.15;
     double Peq = 1.0 / 1.602 * 0.000001;
     int equilibrate;
-    char label[] = "solid"; // Label for the current production run phase
+    char label[] = "liquid"; // Label for the current production run phase
 
     /* Code for generating a uniform random number between 0 and 1. srand should only be called once. */
     srand(time(NULL)); // Set the seed for rand
@@ -400,8 +400,8 @@ int main()
         }
     }
     /* Equilibration 1 to melt system */
-    // equilibrate = 1;
-    // control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
+    equilibrate = 1;
+    control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
     /* Equilibration 2 to cool down system to 700 K*/
     equilibrate = 1;
     control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq, label);
