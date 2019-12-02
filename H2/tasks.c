@@ -13,7 +13,7 @@ void runTask3(){
 
     /***** Parameter declarations *****/
     /* OpenMP parameters */
-    omp_set_num_threads(8);
+    omp_set_num_threads(4);
     clock_t t; // For calculating CPU time
     double time_taken;
     time_t t_wall;  // For calculating true time taken - ''wall time''
