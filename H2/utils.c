@@ -71,10 +71,10 @@ int statInCorrMethod(double Phi[], double E[], int N, int kMax)
 {
     int i;
     int k;
-    int s=0;
+    int s = 0;
     double sum;
-    double meanE=0;   // Mean energy value
-    double meanESq=0; // Mean squared energy value
+    double meanE = 0;   // Mean energy value
+    double meanESq = 0; // Mean squared energy value
 
     /* Pre-calculate the mean and squared mean needed for the correlation functions */
     for (i = 0; i < N; i++)
@@ -84,7 +84,7 @@ int statInCorrMethod(double Phi[], double E[], int N, int kMax)
     }
     meanE /= N;
     meanESq /= N;
-    // printf("Data statistics for testing: %e %e %e \n", meanE, meanESq, meanESq - pow(meanE, 2.0));
+    //printf("Data statistics for testing: %e %e %e \n", meanE, meanESq, meanESq - pow(meanE, 2.0));
 
     /* Calculate correlation function up to kMax */
     // printf("Correlation function: \n");
@@ -113,9 +113,61 @@ int statInCorrMethod(double Phi[], double E[], int N, int kMax)
     return s;
 }
 
-void statInBlockMethod(double S[], double E[], int N, int BMax)
+/* Calculate the statistical inefficiency for the energy based on the block averaging method truncated at BMax */
+double statInBlockMethod(double S[], double E[], int N, int BMax)
 {
-    /* Calculate statistical inefficiency for B up to BMax, and store in S */
+    int i;
+    int j;
+    int B;
+    double s = 0.0;
+    double sum;
+    double meanE = 0;   // Mean energy value
+    double meanESq = 0; // Mean squared energy value
+    double meanF;       // Block average
+    double meanFSq;     // Squared block average
+
+    /* Pre-calculate the mean and squared mean needed for the correlation functions */
+    for (i = 0; i < N; i++)
+    {
+        meanE += E[i];
+        meanESq += pow(E[i], 2.0);
+    }
+    meanE /= N;
+    meanESq /= N;
+    printf("Data statistics for testing: %e %e %e \n", meanE, meanESq, meanESq - pow(meanE, 2.0));
+
+    /* Calculate the lower bound of s as a function of B up to BMax */
+    printf("Lower bound statistical inefficiency: \n");
+    for (B = 1; B <= BMax; B++)
+    {
+        meanF = 0.0;
+        meanFSq = 0.0;
+        for (j = 0; j < N / B; j++) // Note integer division
+        {
+            sum = 0.0;
+            for (i = 0; i < B; i++)
+            {
+                sum += E[i + j * B];
+            }
+            sum /= B;
+            meanF += sum;
+            meanFSq += pow(sum, 2.0);
+        }
+        meanF /= N / B; // Integer division with number of block partitions
+        meanFSq /= N / B;
+        S[B - 1] = B * (meanFSq - pow(meanF, 2.0)) / (meanESq - pow(meanE, 2.0));
+    }
+
+    /* Calculate the statistical inefficiency s as the mean of the last 10 % of the evaluated lower bounds */
+    for (i = (int)(0.9 * BMax); i < BMax; i++)
+    {
+        printf("%d %.6f \n", i, S[i]);
+        s += S[i];
+    }
+    s /= (int)(0.1 * BMax);
+
+    printf("Statistical inefficiency: %f \n", s);
+    return s;
 }
 
 void metropolis(int N, double d, double alpha, double r1[], double r2[], double rho[][3], double theta[], double P_theta[], double E[], int task1and2)
@@ -218,17 +270,18 @@ struct resultTuple control(double alpha, int task1and2)
     /* Metropolis variables */
     // double d = 0.68;  // Displacement parameter - ''step length''
     double d = 0.485;
-    double kMax = 200;    // Maximum number of correlation function evaluations
+    int kMax = 200;       // Maximum number of correlation function evaluations
+    int BMax = 2000;      // Maximum number of block length. Must be less than N_tot
     int N_tot = 100000;   // Number of Metropolis steps
-    int N_eq = 500;         // Number of equilibration steps
+    int N_eq = 500;       // Number of equilibration steps
     int N = N_tot - N_eq; // Number of production steps (return variable)
 
     /* System variables */
-    double meanE=0;                                       // Mean energy (return variable)
-    double varE=0;                                        // Variance in energy (return variable)
-    int sC=0;                                             // Statistical ineffieicy correlation method (return variable)
-    int sB=0;                                             // Statistical ineffieicy block averaging method (return variable)
-    struct resultTuple resTup = {0, 0, 0, 0, 0};              // Create and initialize results tuple
+    double meanE = 0;                                   // Mean energy (return variable)
+    double varE = 0;                                    // Variance in energy (return variable)
+    int sC = 0;                                         // Statistical ineffieicy correlation method (return variable)
+    double sB = 0;                                      // Statistical ineffieicy block averaging method (return variable)
+    struct resultTuple resTup = {0, 0, 0, 0, 0};        // Create and initialize results tuple
     double *r1 = malloc(3 * sizeof(double));            // Position electron 1
     double *r2 = malloc(3 * sizeof(double));            // Position electron 2
     double(*rho)[3] = malloc(sizeof(double[N_tot][3])); // Sampled probabilities
@@ -236,6 +289,7 @@ struct resultTuple control(double alpha, int task1and2)
     double *P_theta = malloc(N_tot * sizeof(double));   // Probability distribution of theta
     double *E = malloc(N_tot * sizeof(double));         // Sampled energies
     double *Phi = malloc(kMax * sizeof(double));        // Correlation function
+    double *S = malloc(BMax * sizeof(double));          // Lower bound of statistical inefficiency s
     /* File handling */
     FILE *f;
     /* RNG */
@@ -259,7 +313,7 @@ struct resultTuple control(double alpha, int task1and2)
     /****** Task 2 - Statistical inneficiency ******/
     /* Calculate the statistical inneficiency in the sampled energies */
     sC = statInCorrMethod(Phi, E, N_tot, kMax);
-    // statInBlockMethod();
+    sB = statInBlockMethod(S, E, N_tot, BMax);
 
     /****** Save results ******/
     if (task1and2)
@@ -296,11 +350,11 @@ struct resultTuple control(double alpha, int task1and2)
         for (int i = 0; i < N; i++)
         {
             meanE += E[i];
-            varE += E[i]*E[i];
+            varE += E[i] * E[i];
         }
         meanE /= N;
-        varE /= N;  // Mean squared value
-        varE -= meanE*meanE; // subtract mean squared
+        varE /= N;             // Mean squared value
+        varE -= meanE * meanE; // subtract mean squared
         sB = 0;
         // sC = 0;
     }
