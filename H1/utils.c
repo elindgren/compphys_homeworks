@@ -174,11 +174,13 @@ void fast_velocity_correlation(int timesteps, int N, double fast_phi[], double P
         }
         /* Calculate FFT */
         powerspectrum(vx, Px, B);
-        powerspectrum(vy, Pz, B);
+        powerspectrum(vy, Py, B);
         powerspectrum(vz, Pz, B);
         /* Save to H matrix */
         for(int j = 0; j<B; j++){
+            printf("Before: P[j]=%.6f \n", P[j]);
             P[j] += Px[j] + Py[j] + Pz[j];
+            printf("After: P[j]=%.6f \n\n", P[j]);
         }
     }
 
@@ -186,7 +188,7 @@ void fast_velocity_correlation(int timesteps, int N, double fast_phi[], double P
     for(int j = 0; j<B; j++){
         P[j] /= (double)N;
     }
-    /* Calculate powerspectrum of Powerspectrum */
+    /* Calculate fft of Powerspectrum */
     fft(P, fast_phi, B);
     /* Square root since we want fourier transform of power spectrum, not powerspectrum. */
     for(int j = 0; j<B; j++){
@@ -194,7 +196,7 @@ void fast_velocity_correlation(int timesteps, int N, double fast_phi[], double P
     }
 
     free(vx); vx=NULL; free(vy); vy=NULL; free(vz); vz=NULL;
-    free(Px); Px=NULL; free(Px); Py=NULL; free(Pz); Pz=NULL;
+    free(Px); Px=NULL; free(Py); Py=NULL; free(Pz); Pz=NULL;
 }
 
 
