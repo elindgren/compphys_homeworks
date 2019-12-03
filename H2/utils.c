@@ -28,7 +28,6 @@ double trialWavefunction(double alpha, double R1[], double R2[])
 double getProb(double alpha, double R1[], double R2[])
 {
     return trialWavefunction(alpha, R1, R2) * trialWavefunction(alpha, R1, R2);
-    ;
 }
 
 double getEnergy(double alpha, double R1[], double R2[])
@@ -47,7 +46,7 @@ double getEnergy(double alpha, double R1[], double R2[])
     double r1Dotr2 = x1 * x2 + y1 * y2 + z1 * z2;
 
     /* Calculate the energy */
-    return -4 + (r1 + r2 - r1Dotr2 / (1 / r1 + 1 / r2)) / (r12 * pow(1 + alpha * r12, 2.0)) - 1.0 / (r12 * pow(1 + alpha * r12, 3.0)) - 1.0 / (4 * pow(1 + alpha * r12, 4.0)) + 1.0 / r12;
+    return -4 + (r1 + r2 - r1Dotr2 * (1 / r1 + 1 / r2)) / (r12 * pow(1 + alpha * r12, 2.0)) - 1.0 / (r12 * pow(1 + alpha * r12, 3.0)) - 1.0 / (4 * pow(1 + alpha * r12, 4.0)) + 1.0 / r12;
 }
 
 double getTheta(double R1[], double R2[])
@@ -72,10 +71,10 @@ int statInCorrMethod(double Phi[], double E[], int N, int kMax)
 {
     int i;
     int k;
-    int s;
+    int s=0;
     double sum;
-    double meanE;   // Mean energy value
-    double meanESq; // Mean squared energy value
+    double meanE=0;   // Mean energy value
+    double meanESq=0; // Mean squared energy value
 
     /* Pre-calculate the mean and squared mean needed for the correlation functions */
     for (i = 0; i < N; i++)
@@ -85,10 +84,10 @@ int statInCorrMethod(double Phi[], double E[], int N, int kMax)
     }
     meanE /= N;
     meanESq /= N;
-    printf("Data statistics for testing: %e %e %e \n", meanE, meanESq, meanESq - pow(meanE, 2.0));
+    // printf("Data statistics for testing: %e %e %e \n", meanE, meanESq, meanESq - pow(meanE, 2.0));
 
     /* Calculate correlation function up to kMax */
-    printf("Correlation function: \n");
+    // printf("Correlation function: \n");
     for (k = 0; k < kMax; k++)
     {
         sum = 0.0;
@@ -98,7 +97,7 @@ int statInCorrMethod(double Phi[], double E[], int N, int kMax)
         }
         Phi[k] = sum / (N - k);
         Phi[k] /= meanESq - pow(meanE, 2.0);
-        printf("%d %.6f \n", k, Phi[k]);
+        // printf("%d %.6f \n", k, Phi[k]);
     }
 
     /* Calculate the statistical inefficiency s by finding the index corresponding to the first index for Phi <= exp(-2) */
@@ -110,7 +109,7 @@ int statInCorrMethod(double Phi[], double E[], int N, int kMax)
             break;
         }
     }
-    printf("Statistical inefficiency: %d \n", s);
+    // printf("Statistical inefficiency: %d \n", s);
     return s;
 }
 
@@ -186,8 +185,8 @@ void metropolis(int N, double d, double alpha, double r1[], double r2[], double 
         if (task1and2)
         {
             /* Calculate P */
-            rho[steps][0] = sqrt(r1[0] * r1[0] + r1[1] * r1[1] + r1[2] * r1[2]); // TODO - calculate correctly
-            rho[steps][1] = sqrt(r2[0] * r2[0] + r2[1] * r2[1] + r2[2] * r2[2]); // TODO - calculate correctly
+            rho[steps][0] = sqrt(r1[0] * r1[0] + r1[1] * r1[1] + r1[2] * r1[2]);
+            rho[steps][1] = sqrt(r2[0] * r2[0] + r2[1] * r2[1] + r2[2] * r2[2]);
             rho[steps][2] = getProb(alpha, r1, r2);
 
             /* Calculate theta */
@@ -219,16 +218,17 @@ struct resultTuple control(double alpha, int task1and2)
     /* Metropolis variables */
     // double d = 0.68;  // Displacement parameter - ''step length''
     double d = 0.485;
-    int N_tot = 100000;   // Number of Metropolis steps
-    int N_eq = 0;         // Number of equilibration steps
-    int N = N_tot - N_eq; // Number of production steps
     double kMax = 200;    // Maximum number of correlation function evaluations
+    int N_tot = 100000;   // Number of Metropolis steps
+    int N_eq = 500;         // Number of equilibration steps
+    int N = N_tot - N_eq; // Number of production steps (return variable)
 
     /* System variables */
-    double meanE;                                       // Mean energy (return variable)
-    int sC;                                             // Statistical ineffieicy correlation method (return variable)
-    int sB;                                             // Statistical ineffieicy block averaging method (return variable)
-    struct resultTuple resTup = {0, 0, 0};              // Create and initialize results tuple
+    double meanE=0;                                       // Mean energy (return variable)
+    double varE=0;                                        // Variance in energy (return variable)
+    int sC=0;                                             // Statistical ineffieicy correlation method (return variable)
+    int sB=0;                                             // Statistical ineffieicy block averaging method (return variable)
+    struct resultTuple resTup = {0, 0, 0, 0, 0};              // Create and initialize results tuple
     double *r1 = malloc(3 * sizeof(double));            // Position electron 1
     double *r2 = malloc(3 * sizeof(double));            // Position electron 2
     double(*rho)[3] = malloc(sizeof(double[N_tot][3])); // Sampled probabilities
@@ -293,14 +293,16 @@ struct resultTuple control(double alpha, int task1and2)
     else
     {
         /* Return mean value of E and the statistical inefiency */
-        meanE = 0;
         for (int i = 0; i < N; i++)
         {
             meanE += E[i];
+            varE += E[i]*E[i];
         }
         meanE /= N;
+        varE /= N;  // Mean squared value
+        varE -= meanE*meanE; // subtract mean squared
         sB = 0;
-        sC = 0;
+        // sC = 0;
     }
 
     /****** Free function variables and fields ******/
@@ -316,6 +318,8 @@ struct resultTuple control(double alpha, int task1and2)
 
     /* Return E and s */
     resTup.E = meanE;
+    resTup.varE = varE;
+    resTup.N = N;
     resTup.sB = sB;
     resTup.sC = sC;
     return resTup;

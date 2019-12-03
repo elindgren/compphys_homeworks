@@ -4,8 +4,10 @@
 struct resultTuple
 {
     double E;  // Average energy
-    double sC; // s using correlation function
-    double sB; // s using block average
+    double varE;  // Variance in energy
+    int N;  // Number of production steps
+    int sC; // s using correlation function
+    int sB; // s using block average
 };
 
 extern double getProb(double, double[], double[]);
