@@ -178,9 +178,7 @@ void fast_velocity_correlation(int timesteps, int N, double fast_phi[], double P
         powerspectrum(vz, Pz, B);
         /* Save to H matrix */
         for(int j = 0; j<B; j++){
-            printf("Before: P[j]=%.6f \n", P[j]);
             P[j] += Px[j] + Py[j] + Pz[j];
-            printf("After: P[j]=%.6f \n\n", P[j]);
         }
     }
 

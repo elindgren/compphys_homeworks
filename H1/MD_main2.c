@@ -14,7 +14,7 @@
 #include "fft_func.h"
 #define N 256              // Number of atoms
 #define eq_timesteps 20000 // Number of equilibration timesteps
-#define prod_timesteps 2000   // Number of production
+#define prod_timesteps 1000   // Number of production
 
 /*
  * Encapsulates the velocity Verlet algorithm
@@ -352,7 +352,7 @@ int main()
     double X[N][3];                             // Positions for each particle - x, y, z coordinate.
     int Nc = (int)round(pow(N / 4, 1.0 / 3.0)); // Number of atoms N = 4*Nc*Nc*Nc => Nc = (N/4)^1/3 - 4 atoms per unit cell, with Nc primitive cells in each direction => in total N atoms.
     double m_al = 0.002796;                     // 27 u in our atomic units.
-    double dt = 0.005;                          // Recommended according to MD is a few femtoseconds
+    double dt = 0.001;                          // Recommended according to MD is a few femtoseconds
 
     /* Task 1 - calculate energy for volumes in the range 64 - 68 Å^3. */
     double v_start = 64;
@@ -403,8 +403,8 @@ int main()
     // equilibrate = 1;
     // control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, 1200, Peq, label);
     /* Equilibration 2 to cool down system to 700 K*/
-    equilibrate = 1;
-    control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq, label);
+    // equilibrate = 1;
+    // control(x, v, a, F, &a_lat, ndim, Nc, dt, m_al, equilibrate, Teq, Peq, label);
 
     /* Production */
     equilibrate = 0;

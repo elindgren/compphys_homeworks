@@ -3,5 +3,6 @@
 
 extern void runTask1and2();
 extern void runTask3();
+extern void runTask4();
 
 #endif

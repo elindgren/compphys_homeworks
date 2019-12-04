@@ -66,6 +66,20 @@ double getTheta(double R1[], double R2[])
     return acos(r1_dot_r2 / (r1 * r2));
 }
 
+double getGradLnPsi(double alpha, double R1[], double R2[]){
+    double x1 = R1[0];
+    double y1 = R1[1];
+    double z1 = R1[2];
+    double x2 = R2[0];
+    double y2 = R2[1];
+    double z2 = R2[2];
+
+    /* Calculate r12 to simplify expression */
+    double r12 = sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
+
+    return -pow(r12,2.0) / (2 * pow(1+alpha*r12, 2.0) );
+}
+
 /* Calculate the statistical inefficiency for the energy based on the correlation function method truncated at kMax */
 int statInCorrMethod(double Phi[], double E[], int N, int kMax)
 {
@@ -134,10 +148,10 @@ double statInBlockMethod(double S[], double E[], int N, int BMax)
     }
     meanE /= N;
     meanESq /= N;
-    printf("Data statistics for testing: %e %e %e \n", meanE, meanESq, meanESq - pow(meanE, 2.0));
+    // printf("Data statistics for testing: %e %e %e \n", meanE, meanESq, meanESq - pow(meanE, 2.0));
 
     /* Calculate the lower bound of s as a function of B up to BMax */
-    printf("Lower bound statistical inefficiency: \n");
+    // printf("Lower bound statistical inefficiency: \n");
     for (B = 1; B <= BMax; B++)
     {
         meanF = 0.0;
@@ -161,16 +175,16 @@ double statInBlockMethod(double S[], double E[], int N, int BMax)
     /* Calculate the statistical inefficiency s as the mean of the last 10 % of the evaluated lower bounds */
     for (i = (int)(0.9 * BMax); i < BMax; i++)
     {
-        printf("%d %.6f \n", i, S[i]);
+        // printf("%d %.6f \n", i, S[i]);
         s += S[i];
     }
     s /= (int)(0.1 * BMax);
 
-    printf("Statistical inefficiency: %f \n", s);
+    // printf("Statistical inefficiency: %f \n", s);
     return s;
 }
 
-void metropolis(int N, double d, double alpha, double r1[], double r2[], double rho[][3], double theta[], double P_theta[], double E[], int task1and2)
+void metropolis(int N, double d, double alpha, double r1[], double r2[], double rho[][3], double theta[], double P_theta[], double E[], double gradLnPsi[], int task1and2)
 {
     /* Performs a MCMC sampling of the configuration space */
 
@@ -233,7 +247,7 @@ void metropolis(int N, double d, double alpha, double r1[], double r2[], double 
             /* Reject - do nothing */
             // printf("Rejected\n\n");
         }
-
+        
         if (task1and2)
         {
             /* Calculate P */
@@ -245,9 +259,11 @@ void metropolis(int N, double d, double alpha, double r1[], double r2[], double 
             theta[steps] = getTheta(r1, r2);
             P_theta[steps] = 0.5 * sin(theta[steps]);
         }
-
         /* Calculate E */
         E[steps] = getEnergy(alpha, r1, r2);
+        /* Calculate grad{ln{Psi_T}} */
+        gradLnPsi[steps] = getGradLnPsi(alpha, r1, r2);
+     
     }
 
     if (task1and2)
@@ -273,7 +289,7 @@ struct resultTuple control(double alpha, int task1and2)
     int kMax = 200;       // Maximum number of correlation function evaluations
     int BMax = 2000;      // Maximum number of block length. Must be less than N_tot
     int N_tot = 100000;   // Number of Metropolis steps
-    int N_eq = 500;       // Number of equilibration steps
+    int N_eq = 500;       // Number of equilibration steps - Set this to 0 for task1
     int N = N_tot - N_eq; // Number of production steps (return variable)
 
     /* System variables */
@@ -281,6 +297,8 @@ struct resultTuple control(double alpha, int task1and2)
     double varE = 0;                                    // Variance in energy (return variable)
     int sC = 0;                                         // Statistical ineffieicy correlation method (return variable)
     double sB = 0;                                      // Statistical ineffieicy block averaging method (return variable)
+    double meanGradLnPsi = 0;                           // Mean value of gradient of logarithm of wavefunction
+    double meanEGradLnPsi = 0;                          // Mean value of Energy and gradient of logarithm of wavefunction
     struct resultTuple resTup = {0, 0, 0, 0, 0};        // Create and initialize results tuple
     double *r1 = malloc(3 * sizeof(double));            // Position electron 1
     double *r2 = malloc(3 * sizeof(double));            // Position electron 2
@@ -290,6 +308,7 @@ struct resultTuple control(double alpha, int task1and2)
     double *E = malloc(N_tot * sizeof(double));         // Sampled energies
     double *Phi = malloc(kMax * sizeof(double));        // Correlation function
     double *S = malloc(BMax * sizeof(double));          // Lower bound of statistical inefficiency s
+    double *gradLnPsi = malloc(N_tot * sizeof(double));
     /* File handling */
     FILE *f;
     /* RNG */
@@ -308,7 +327,7 @@ struct resultTuple control(double alpha, int task1and2)
     }
 
     /****** Metropolis ******/
-    metropolis(N, d, alpha, r1, r2, rho, theta, P_theta, E, task1and2);
+    metropolis(N_tot, d, alpha, r1, r2, rho, theta, P_theta, E, gradLnPsi, task1and2);
 
     /****** Task 2 - Statistical inneficiency ******/
     /* Calculate the statistical inneficiency in the sampled energies */
@@ -347,15 +366,19 @@ struct resultTuple control(double alpha, int task1and2)
     else
     {
         /* Return mean value of E and the statistical inefiency */
-        for (int i = 0; i < N; i++)
+        for (int i = N_eq; i < N_tot; i++)
         {
             meanE += E[i];
             varE += E[i] * E[i];
+            meanGradLnPsi += gradLnPsi[i];
+            meanEGradLnPsi += E[i]*gradLnPsi[i];
         }
         meanE /= N;
         varE /= N;             // Mean squared value
         varE -= meanE * meanE; // subtract mean squared
-        sB = 0;
+        meanGradLnPsi /= N;
+        meanEGradLnPsi /= N;
+        // sB = 0;
         // sC = 0;
     }
 
@@ -371,10 +394,12 @@ struct resultTuple control(double alpha, int task1and2)
     gsl_rng_free(q);
 
     /* Return E and s */
-    resTup.E = meanE;
+    resTup.meanE = meanE;
     resTup.varE = varE;
     resTup.N = N;
     resTup.sB = sB;
     resTup.sC = sC;
+    resTup.meanGradLnPsi = meanGradLnPsi;
+    resTup.meanEGradLnPsi = meanEGradLnPsi;
     return resTup;
 }
