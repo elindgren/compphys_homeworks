@@ -40,13 +40,21 @@ double getEnergy(double alpha, double R1[], double R2[])
     double z2 = R2[2];
 
     /* Calculate r1, r2 and r12 to simplify expression */
-    double r1 = sqrt(x1 * x1 + y1 * y1 + z1 * z1);
-    double r2 = sqrt(x2 * x2 + y2 * y2 + z2 * z2);
+    double r1 = sqrt(x1*x1 + y1*y1 + z1*z1);
+    double r2 = sqrt(x2*x2 + y2*y2 + z2*z2);
     double r12 = sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
-    double r1Dotr2 = x1 * x2 + y1 * y2 + z1 * z2;
+    double r1Dotr2 = x1*x2 + y1*y2 + z1*z2;
+    
+    /* Define energy terms */
+    double E0 = -4.0;
+    double E1 = (r1 + r2 - r1Dotr2*(1.0/r1 + 1.0/r2)) / (r12 * pow(1+alpha*r12, 2.0));
+    double E2 = -1.0 / (r12 * pow(1+alpha*r12, 3.0));
+    double E3 = -1.0 / (4 * pow(1+alpha*r12, 4.0));
+    double E4 = 1.0 / r12;
 
     /* Calculate the energy */
-    return -4 + (r1 + r2 - r1Dotr2 * (1 / r1 + 1 / r2)) / (r12 * pow(1 + alpha * r12, 2.0)) - 1.0 / (r12 * pow(1 + alpha * r12, 3.0)) - 1.0 / (4 * pow(1 + alpha * r12, 4.0)) + 1.0 / r12;
+    // -4.0 + (r1 + r2 - r1Dotr2 * (1 / r1 + 1 / r2)) / (r12 * pow(1 + alpha * r12, 2.0)) - 1.0 / (r12 * pow(1 + alpha * r12, 3.0)) - 1.0 / (4 * pow(1 + alpha * r12, 4.0)) + 1.0 / r12;
+    return E0 + E1 + E2 + E3 + E4;
 }
 
 double getTheta(double R1[], double R2[])
@@ -391,6 +399,11 @@ struct resultTuple control(double alpha, int task1and2)
     rho = NULL;
     free(theta);
     theta = NULL;
+    free(P_theta); P_theta = NULL;
+    free(E); E = NULL;
+    free(Phi); Phi = NULL;
+    free(S); S = NULL;
+    free(gradLnPsi); gradLnPsi = NULL;
     gsl_rng_free(q);
 
     /* Return E and s */

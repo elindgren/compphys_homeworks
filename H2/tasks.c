@@ -82,7 +82,7 @@ void runTask4(){
     double maxBeta = 1.0;  // Maximum value of beta
     double dBeta = 0.1;  // Step in beta
     int N_betas = (maxBeta-minBeta) / dBeta;  // Number of beta 
-    int N_steps = 200 + 2; // Number of updates of alpha until convergence - the +2 is the number of header rows
+    int N_steps = 1000 + 2; // Number of updates of alpha until convergence - the +2 is the number of header rows
     double (*res)[N_betas] = malloc(sizeof(double[N_steps][N_betas]));  // Matrix containing results - beta[:0] | beta[:1] etc. 
     /* File IO */
     FILE *f;
@@ -125,4 +125,59 @@ void runTask4(){
     /***** Free variables *****/
     free(res); res=NULL;
     printf("Finished Task 4 \n");
+}
+
+void runTask5(){
+    /* Run Metropolis careful soimulation */
+
+    /***** Parameter declarations *****/
+    /* OpenMP parameters */
+    omp_set_num_threads(8);
+    clock_t t; // For calculating CPU time
+    double time_taken;
+    time_t t_wall;  // For calculating true time taken - ''wall time''
+
+    /* Parameters to iterate over */
+    int N_walkers = 10000;
+    double alpha = 0.143; // The optimized value for alpha
+    double (*res)[6] = malloc(sizeof(double[N_walkers][6])); 
+    int completed_walkers = 0;
+    /* File IO */
+    FILE *f;
+
+    /***** Iterate over betas - start each beta on a separate thread *****/
+    printf("Starting Task 5 \n");
+    t = clock(); 
+    t_wall = time(0);
+    #pragma omp parallel for
+    for(int i=0; i<N_walkers; i++){
+        if(completed_walkers % 100 == 0){
+            printf("Progress: %.2f % \n", (double)completed_walkers/N_walkers*100);
+        }
+        struct resultTuple resTup = control(alpha, 0);  // Declare here to make sure no overwriting of energies between threads
+            #pragma omp critical  // This must be executed one thread at a time
+            res[i][0] = alpha;
+            res[i][1] = resTup.meanE;
+            res[i][2] = resTup.varE;
+            res[i][3] = resTup.N;
+            res[i][4] = resTup.sC;
+            res[i][5] = resTup.sB;
+            completed_walkers++;
+    }
+    t = clock() - t; 
+    t_wall = time(0) - t_wall;
+    time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds 
+    printf("\t Finished iteration over betas - CPU time: %.0f s - Wall time: %ld s\n", time_taken, t_wall);
+
+    /***** Save results *****/
+    /* Note that the first row contains all the betas! */
+    f = fopen("task5.dat", "w");
+        for(int i=0; i<N_walkers; i++){
+            fprintf(f, "%.8f \t %.8f \t %.8f \t %.8f \t %.8f \t %.8f \n", res[i][0], res[i][1], res[i][2], res[i][3], res[i][4], res[i][5]);
+        }
+    fclose(f);
+
+    /***** Free variables *****/
+    free(res); res=NULL;
+    printf("Finished Task 5 \n");
 }
