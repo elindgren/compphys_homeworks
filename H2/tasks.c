@@ -25,7 +25,7 @@ void runTask3(){
     double maxAlpha = 0.25;  // Maximum value of alpha
     double dAlpha = 0.01;  // Step in alpha
     int N_alphas = (maxAlpha-minAlpha) / dAlpha;  // Number of alphas 
-    int NIndepCalc = 10; // Number of independent calculations for each alpha
+    int NIndepCalc = 100; // Number of independent calculations for each alpha
     double alpha;  // Current value of alpha
     double (*res)[6] = malloc(sizeof(double[N_alphas*NIndepCalc][6]));  // Matrix containing results - alpha | E | s_corr | s_block
     /* File IO */
