@@ -3,8 +3,8 @@
 int main()
 {
     /* Task 1 and 2 in the same file */
-    runTask1and2();
-    runTask3();
+    // runTask1and2();
+    // runTask3();
     // runTask4();
-    // runTask5();
-}
+    runTask5();
+} 

@@ -171,7 +171,7 @@ void runTask5(){
 
     /***** Save results *****/
     /* Note that the first row contains all the betas! */
-    f = fopen("task5.dat", "w");
+    f = fopen("task5_test.dat", "w");
         for(int i=0; i<N_walkers; i++){
             fprintf(f, "%.8f \t %.8f \t %.8f \t %.8f \t %.8f \t %.8f \n", res[i][0], res[i][1], res[i][2], res[i][3], res[i][4], res[i][5]);
         }
