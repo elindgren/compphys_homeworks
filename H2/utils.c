@@ -40,16 +40,16 @@ double getEnergy(double alpha, double R1[], double R2[])
     double z2 = R2[2];
 
     /* Calculate r1, r2 and r12 to simplify expression */
-    double r1 = sqrt(x1*x1 + y1*y1 + z1*z1);
-    double r2 = sqrt(x2*x2 + y2*y2 + z2*z2);
+    double r1 = sqrt(x1 * x1 + y1 * y1 + z1 * z1);
+    double r2 = sqrt(x2 * x2 + y2 * y2 + z2 * z2);
     double r12 = sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
-    double r1Dotr2 = x1*x2 + y1*y2 + z1*z2;
-    
+    double r1Dotr2 = x1 * x2 + y1 * y2 + z1 * z2;
+
     /* Define energy terms */
     double E0 = -4.0;
-    double E1 = (r1 + r2 - r1Dotr2*(1.0/r1 + 1.0/r2)) / (r12 * pow(1+alpha*r12, 2.0));
-    double E2 = -1.0 / (r12 * pow(1+alpha*r12, 3.0));
-    double E3 = -1.0 / (4 * pow(1+alpha*r12, 4.0));
+    double E1 = (r1 + r2 - r1Dotr2 * (1.0 / r1 + 1.0 / r2)) / (r12 * pow(1 + alpha * r12, 2.0));
+    double E2 = -1.0 / (r12 * pow(1 + alpha * r12, 3.0));
+    double E3 = -1.0 / (4 * pow(1 + alpha * r12, 4.0));
     double E4 = 1.0 / r12;
 
     /* Calculate the energy */
@@ -74,7 +74,8 @@ double getTheta(double R1[], double R2[])
     return acos(r1_dot_r2 / (r1 * r2));
 }
 
-double getGradLnPsi(double alpha, double R1[], double R2[]){
+double getGradLnPsi(double alpha, double R1[], double R2[])
+{
     double x1 = R1[0];
     double y1 = R1[1];
     double z1 = R1[2];
@@ -85,7 +86,7 @@ double getGradLnPsi(double alpha, double R1[], double R2[]){
     /* Calculate r12 to simplify expression */
     double r12 = sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
 
-    return -pow(r12,2.0) / (2 * pow(1+alpha*r12, 2.0) );
+    return -pow(r12, 2.0) / (2 * pow(1 + alpha * r12, 2.0));
 }
 
 /* Calculate the statistical inefficiency for the energy based on the correlation function method truncated at kMax */
@@ -255,7 +256,7 @@ void metropolis(int N, double d, double alpha, double r1[], double r2[], double 
             /* Reject - do nothing */
             // printf("Rejected\n\n");
         }
-        
+
         if (task1and2)
         {
             /* Calculate P */
@@ -271,7 +272,6 @@ void metropolis(int N, double d, double alpha, double r1[], double r2[], double 
         E[steps] = getEnergy(alpha, r1, r2);
         /* Calculate grad{ln{Psi_T}} */
         gradLnPsi[steps] = getGradLnPsi(alpha, r1, r2);
-     
     }
 
     if (task1and2)
@@ -294,9 +294,9 @@ struct resultTuple control(double alpha, int task1and2)
     /* Metropolis variables */
     // double d = 0.68;  // Displacement parameter - ''step length''
     double d = 0.485;
-    int kMax = 200;       // Maximum number of correlation function evaluations
-    int BMax = 2000;      // Maximum number of block length. Must be less than N_tot
-    int N_tot = 75000;   // Number of Metropolis steps
+    int kMax = 250;       // Maximum number of correlation function evaluations
+    int BMax = 5000;      // Maximum number of block length. Must be less than N_tot
+    int N_tot = 75000;    // Number of Metropolis steps
     int N_eq = 500;       // Number of equilibration steps - Set this to 0 for task1
     int N = N_tot - N_eq; // Number of production steps (return variable)
 
@@ -332,6 +332,8 @@ struct resultTuple control(double alpha, int task1and2)
     {
         r1[i] = 2 * (gsl_rng_uniform(q) - 0.5) * 10; // TODO arbitrary as of now
         r2[i] = 2 * (gsl_rng_uniform(q) - 0.5) * 10; // TODO arbitrary as of now
+        //r1[i] = 10;
+        //r2[i] = -10;
     }
 
     /****** Metropolis ******/
@@ -370,6 +372,20 @@ struct resultTuple control(double alpha, int task1and2)
             fprintf(f, "%.8f \n", E[i]);
         }
         fclose(f);
+
+        f = fopen("task1and2/corr_fcn.dat", "w");
+        for (int i = 0; i < kMax; i++)
+        {
+            fprintf(f, "%d \t %.8f \n", i, Phi[i]);
+        }
+        fclose(f);
+
+        f = fopen("task1and2/stat_inef.dat", "w");
+        for (int i = 0; i < BMax; i++)
+        {
+            fprintf(f, "%d \t %.8f \n", i + 1, S[i]);
+        }
+        fclose(f);
     }
     else
     {
@@ -379,7 +395,7 @@ struct resultTuple control(double alpha, int task1and2)
             meanE += E[i];
             varE += E[i] * E[i];
             meanGradLnPsi += gradLnPsi[i];
-            meanEGradLnPsi += E[i]*gradLnPsi[i];
+            meanEGradLnPsi += E[i] * gradLnPsi[i];
         }
         meanE /= N;
         varE /= N;             // Mean squared value
@@ -399,11 +415,16 @@ struct resultTuple control(double alpha, int task1and2)
     rho = NULL;
     free(theta);
     theta = NULL;
-    free(P_theta); P_theta = NULL;
-    free(E); E = NULL;
-    free(Phi); Phi = NULL;
-    free(S); S = NULL;
-    free(gradLnPsi); gradLnPsi = NULL;
+    free(P_theta);
+    P_theta = NULL;
+    free(E);
+    E = NULL;
+    free(Phi);
+    Phi = NULL;
+    free(S);
+    S = NULL;
+    free(gradLnPsi);
+    gradLnPsi = NULL;
     gsl_rng_free(q);
 
     /* Return E and s */
