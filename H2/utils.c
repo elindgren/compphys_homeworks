@@ -296,7 +296,7 @@ struct resultTuple control(double alpha, int task1and2)
     double d = 0.485;
     int kMax = 200;       // Maximum number of correlation function evaluations
     int BMax = 5000;      // Maximum number of block length. Must be less than N_tot
-    int N_tot = 100000;   // Number of Metropolis steps
+    int N_tot = 10000;   // Number of Metropolis steps
     int N_eq = 500;       // Number of equilibration steps - Set this to 0 for task1
     int N = N_tot - N_eq; // Number of production steps (return variable)
 

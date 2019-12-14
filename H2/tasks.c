@@ -82,7 +82,7 @@ void runTask4(){
     double maxBeta = 1.0;  // Maximum value of beta
     double dBeta = 0.1;  // Step in beta
     int N_betas = (maxBeta-minBeta) / dBeta;  // Number of beta 
-    int N_steps = 1000 + 2; // Number of updates of alpha until convergence - the +2 is the number of header rows
+    int N_steps = 10000 + 2; // Number of updates of alpha until convergence - the +2 is the number of header rows
     double (*res)[N_betas] = malloc(sizeof(double[N_steps][N_betas]));  // Matrix containing results - beta[:0] | beta[:1] etc. 
     /* File IO */
     FILE *f;
@@ -101,7 +101,10 @@ void runTask4(){
         // printf("Beta %.2f \n", beta);
         for(int i=2; i<N_steps; i++){
             struct resultTuple resTup = control(alpha, 0);  // Perform metropolis for current alpha
-            alpha -= exp(-beta) * 2*(resTup.meanEGradLnPsi - resTup.meanE*resTup.meanGradLnPsi); // Use returned average energy and value of gradient log to update alpha
+            // if(i%100 ==0){
+            //     printf("gamma_p: %.6f \n", pow(i, -beta));
+            // }
+            alpha -= pow(i, -beta) * 2*(resTup.meanEGradLnPsi - resTup.meanE*resTup.meanGradLnPsi); // Use returned average energy and value of gradient log to update alpha
             #pragma omp critical  // This must be executed one thread at a time
             res[i][j] = alpha;  // Save alpha
         }
@@ -139,7 +142,7 @@ void runTask5(){
 
     /* Parameters to iterate over */
     int N_walkers = 10000;
-    double alpha = 0.143; // The optimized value for alpha
+    double alpha = 0.145; // The optimized value for alpha
     double (*res)[6] = malloc(sizeof(double[N_walkers][6])); 
     int completed_walkers = 0;
     /* File IO */
@@ -152,7 +155,8 @@ void runTask5(){
     #pragma omp parallel for
     for(int i=0; i<N_walkers; i++){
         if(completed_walkers % 100 == 0){
-            printf("Progress: %.2f % \n", (double)completed_walkers/N_walkers*100);
+            printf("Progress: %.2f %", (double)completed_walkers/N_walkers*100);
+            printf("\n");
         }
         struct resultTuple resTup = control(alpha, 0);  // Declare here to make sure no overwriting of energies between threads
             #pragma omp critical  // This must be executed one thread at a time
