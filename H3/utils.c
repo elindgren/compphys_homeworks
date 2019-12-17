@@ -45,18 +45,27 @@ double derivative_terms(double x[], int i, double alpha_trial){
         /* Particle 1 - derivatives w.r. xi */
         df1 = (-1/r1) * 2*x[i];
         df2 = (x[i] - x[i+3])/( 2*r12 * pow(1+alpha_trial*r12, 2.0) );
+        
+        /* From potential! */
+        // df1 = -2/pow(r1, 3.0)*x[i];
+        // df2 = 1/pow(r12, 3.0) * (x[i] - x[i+3]);
     }else{
         /* Particle 2 - derivative w.r. yi */
         df1 = (-1/r2) * 2*x[i];
         df2 = (x[i] - x[i-3])/( 2*r12 * pow(1+alpha_trial*r12, 2.0) );  // -(x[i]-y[i]) = y[i]-x[i] - xi = x[i-3]
+        
+        /* From potential! */
+        // df1 = -2/pow(r2, 3.0)*x[i];
+        // df2 = 1/pow(r12, 3.0) * (x[i] - x[i-3]);
     }
-    return (df1 + df2);
+    // printf("df1=%.4f \t df2=%.4f \t r1=%.8f \t r2=%.8f \t r12=%.8f", df1, df2, r1, r2, r12);
+    return df1 + df2;
 }
 
 double force(double x[], int i){
     /* The trial wavefunction cancels from the gradient, resulting in only 2*derivative factors */
     double alpha_trial = 0.1;
-    return 2*derivative_terms(x,i, alpha_trial);
+    return 2*derivative_terms(x, i, alpha_trial);
 }
 
 
@@ -90,13 +99,18 @@ int diffusionMC(int cs, int ndim, int N, double ET, double x[][ndim], double cur
     int m;
 
     for(int j=0; j<N; j++){
+        /* Save current position */
+        for(int k=0; k<ndim; k++){
+            currentX[k] = x[j][k];  // Pass this to calculate force - wrong particle if not!
+        }
+
         /* Displace walker */
         for(int k=0; k<ndim; k++){
             if(cs==1 || cs==2){
                 x[j][k] += sqrt(dtau)*gsl_ran_gaussian(q, 1);
             }else if (cs==3 || cs==4){
-                currentX[k] = x[j][k];  // Pass this to calculate force - wrong particle if not!
                 F = force(currentX, k);
+                // printf("\t F=%.4f \n", F);
                 x[j][k] += sqrt(dtau)*gsl_ran_gaussian(q, 1) + 0.5*dtau*F;
             }
             currentX[k] = x[j][k];
@@ -111,6 +125,13 @@ int diffusionMC(int cs, int ndim, int N, double ET, double x[][ndim], double cur
             /* Kill this Johnny Walker - shift all positions one step to the left */
             for(int l=j+1; l<N; l++){
                 for(int k=0; k<ndim; k++){
+                    // if(j==N-1){
+                    //     printf("din fuling \n");
+                    //     exit(-1);
+                    // }else if(x[l][k]==0.0){
+                    //     printf("N=%d \t l=%d j=%d \n", N, l, j);
+                    //     exit(-1);
+                    // }
                     x[l-1][k] = x[l][k];
                 }
             }
@@ -120,10 +141,14 @@ int diffusionMC(int cs, int ndim, int N, double ET, double x[][ndim], double cur
             /* It should spawn m-1 NEW walkers */
             for(int l=N; l<N+m-1; l++){
                 for(int k=0; k<ndim; k++){
+                    // if(x[j][k]==0.0){
+                    //     printf("N=%d \t l=%d j=%d \n", N, l, j);
+                    //     exit(-1);
+                    // }
                     x[l][k] = x[j][k];
                 }
             }
-            N += m; 
+            N += m-1; 
         }
         // printf("\t j=%d, m=%d, N=%d, W=%.4f, ET=%.4f, V=%.4f \n", j, m, N, W, ET, V);
     }
@@ -164,7 +189,7 @@ void control(int cs, int ndim, int N0, int iters, double dtau, double alpha, dou
     /* Randomize x starting values */
     for(int l=0; l<N0; l++){
         for(int k=0; k<ndim; k++){
-            x[l][k] = gsl_ran_gaussian(q, 10);
+            x[l][k] = gsl_ran_gaussian(q, 1);
         }
     }
 
