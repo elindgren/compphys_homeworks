@@ -3,7 +3,7 @@
 int main()
 {
     //runTask1();
-    runTask2();
-    // runTask4();
+    // runTask2();
+    runTask3();
     // runTask5();
 } 

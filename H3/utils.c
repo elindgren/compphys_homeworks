@@ -8,13 +8,65 @@
 #define PI 3.141592653589793238
 
 
+double trial_wave(double x[], double alpha){
+    double x1 = x[0];
+    double y1 = x[1];
+    double z1 = x[2];
+    double x2 = x[3];
+    double y2 = x[4];
+    double z2 = x[5];
+
+    /* Calculate r1, r2 and r1*r2 to simplify expression */
+    double r1 = sqrt(x1 * x1 + y1 * y1 + z1 * z1);
+    double r2 = sqrt(x2 * x2 + y2 * y2 + z2 * z2);
+    double r12 = sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
+
+    return exp(-2*r1 )*exp(-2*r2) * exp(r12 /(2 * (1+alpha*r12)));
+}
+
+double derivative_terms(double x[], int i, double alpha_trial){
+    double x1 = x[0];
+    double y1 = x[1];
+    double z1 = x[2];
+    double x2 = x[3];
+    double y2 = x[4];
+    double z2 = x[5];
+
+    /* Calculate r1, r2 and r1*r2 to simplify expression */
+    double r1 = sqrt(x1 * x1 + y1 * y1 + z1 * z1);
+    double r2 = sqrt(x2 * x2 + y2 * y2 + z2 * z2);
+    double r12 = sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
+
+    /* Calculate derivative */
+    double df1;
+    double df2;
+
+    if(i<=2){
+        /* Particle 1 - derivatives w.r. xi */
+        df1 = (-1/r1) * 2*x[i];
+        df2 = (x[i] - x[i+3])/( 2*r12 * pow(1+alpha_trial*r12, 2.0) );
+    }else{
+        /* Particle 2 - derivative w.r. yi */
+        df1 = (-1/r2) * 2*x[i];
+        df2 = (x[i] - x[i-3])/( 2*r12 * pow(1+alpha_trial*r12, 2.0) );  // -(x[i]-y[i]) = y[i]-x[i] - xi = x[i-3]
+    }
+    return (df1 + df2);
+}
+
+double force(double x[], int i){
+    /* The trial wavefunction cancels from the gradient, resulting in only 2*derivative factors */
+    double alpha_trial = 0.1;
+    return 2*derivative_terms(x,i, alpha_trial);
+}
+
+
 double potential(int cs, int ndim, double x[]){
     double V=0;
     if(cs==1){
         for(int k=0; k<ndim; k++){
             V += 0.5*x[k]*x[k];
         }
-    }else if(cs==2){
+    }else if(cs==2 || cs==3 || cs==4){
         double x1 = x[0];
         double y1 = x[1];
         double z1 = x[2];
@@ -34,12 +86,19 @@ double potential(int cs, int ndim, double x[]){
 int diffusionMC(int cs, int ndim, int N, double ET, double x[][ndim], double currentX[], double dtau, gsl_rng *q){
     double V;
     double W;
+    double F;
     int m;
 
     for(int j=0; j<N; j++){
         /* Displace walker */
         for(int k=0; k<ndim; k++){
-            x[j][k] += sqrt(dtau)*gsl_ran_gaussian(q, 1);
+            if(cs==1 || cs==2){
+                x[j][k] += sqrt(dtau)*gsl_ran_gaussian(q, 1);
+            }else if (cs==3 || cs==4){
+                currentX[k] = x[j][k];  // Pass this to calculate force - wrong particle if not!
+                F = force(currentX, k);
+                x[j][k] += sqrt(dtau)*gsl_ran_gaussian(q, 1) + 0.5*dtau*F;
+            }
             currentX[k] = x[j][k];
         }
 
