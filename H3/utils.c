@@ -71,11 +71,12 @@ double force(double x[], int i){
 
 double potential(int cs, int ndim, double x[]){
     double V=0;
+    double alpha_trial = 0.1;
     if(cs==1){
         for(int k=0; k<ndim; k++){
             V += 0.5*x[k]*x[k];
         }
-    }else if(cs==2 || cs==3 || cs==4){
+    }else if(cs==2){
         double x1 = x[0];
         double y1 = x[1];
         double z1 = x[2];
@@ -87,7 +88,35 @@ double potential(int cs, int ndim, double x[]){
         double r1 = sqrt(x1 * x1 + y1 * y1 + z1 * z1);
         double r2 = sqrt(x2 * x2 + y2 * y2 + z2 * z2);
         double r12 = sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
+
         V = -2/r1 - 2/r2 + 1/r12;
+    }else if(cs==3 || cs==4){
+        // Using E_L(x) from H2b instead of V(x)
+        double x1 = x[0];
+        double y1 = x[1];
+        double z1 = x[2];
+        double x2 = x[3];
+        double y2 = x[4];
+        double z2 = x[5];
+
+        /* Calculate r1, r2 and r1*r2 to simplify expression */
+        double r1 = sqrt(x1 * x1 + y1 * y1 + z1 * z1);
+        double r2 = sqrt(x2 * x2 + y2 * y2 + z2 * z2);
+        double r12 = sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
+        /* ------------------- Copy from H2b --------------- */
+        double r1Dotr2 = x1 * x2 + y1 * y2 + z1 * z2;
+
+        /* Define energy terms */
+        double E0 = -4.0;
+        double E1 = (r1 + r2 - r1Dotr2 * (1.0 / r1 + 1.0 / r2)) / (r12 * pow(1 + alpha_trial * r12, 2.0));
+        double E2 = -1.0 / (r12 * pow(1 + alpha_trial * r12, 3.0));
+        double E3 = -1.0 / (4 * pow(1 + alpha_trial * r12, 4.0));
+        double E4 = 1.0 / r12;
+
+        /* Calculate the energy */
+        V =  E0 + E1 + E2 + E3 + E4;
+        /* ---------------------------------------- */ 
+        
     }
     return V;
 }
@@ -240,5 +269,4 @@ void control(int cs, int ndim, int N0, int iters, double dtau, double alpha, dou
     free(currentX); currentX=NULL;
     free(x_hist); x_hist=NULL;
 }
-
 

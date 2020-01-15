@@ -43,7 +43,7 @@ void runTask2(){
     int ndim = 6;
     int N0 = 500;
     double dtau = 0.005;
-    double alpha = 0.05;
+    double alpha = 0.1;
     /* Data structures */
     double *Nwalkers = malloc(iters * sizeof(double));
     double *ETPhoneHome = malloc(iters * sizeof(double));
@@ -69,12 +69,12 @@ void runTask2(){
 
 void runTask3(){
     /***** Parameter declarations *****/
-    int iters = 5000;  // Monte Carlo iterations
+    int iters = 20000;  // Monte Carlo iterations
     int cs = 3;  // cs = case för att c suger röv
     int ndim = 6;
     int N0 = 500;
-    double dtau = 0.005;
-    double alpha = 0.05;
+    double dtau = 0.05;
+    double alpha = 0.1;
     /* Data structures */
     double *Nwalkers = malloc(iters * sizeof(double));
     double *ETPhoneHome = malloc(iters * sizeof(double));
