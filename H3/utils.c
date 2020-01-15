@@ -122,37 +122,27 @@ int diffusionMC(int cs, int ndim, int N, double ET, double x[][ndim], double cur
         // /* Kill or create walkers */  
         m = (int)( W + gsl_rng_uniform(q));
         if(m==0){
-            /* Kill this Johnny Walker - shift all positions one step to the left */
+            /* Kill this Walker - shift all positions one step to the left */
             for(int l=j+1; l<N; l++){
                 for(int k=0; k<ndim; k++){
-                    // if(j==N-1){
-                    //     printf("din fuling \n");
-                    //     exit(-1);
-                    // }else if(x[l][k]==0.0){
-                    //     printf("N=%d \t l=%d j=%d \n", N, l, j);
-                    //     exit(-1);
-                    // }
                     x[l-1][k] = x[l][k];
                 }
             }
             N -= 1;
         }else if (m>1){
-            /* Make woho - Give birth to a new offspring */
+            /* Create a new walker */
             /* It should spawn m-1 NEW walkers */
             for(int l=N; l<N+m-1; l++){
                 for(int k=0; k<ndim; k++){
-                    // if(x[j][k]==0.0){
-                    //     printf("N=%d \t l=%d j=%d \n", N, l, j);
-                    //     exit(-1);
-                    // }
                     x[l][k] = x[j][k];
                 }
             }
             N += m-1; 
         }
         // printf("\t j=%d, m=%d, N=%d, W=%.4f, ET=%.4f, V=%.4f \n", j, m, N, W, ET, V);
+        /* Save positions to x_hist */
+        
     }
-    
     return N;
 }
 
@@ -177,6 +167,10 @@ void control(int cs, int ndim, int N0, int iters, double dtau, double alpha, dou
     int Nmax = 5*N0;
     double (*x)[ndim] = malloc(sizeof(double[Nmax][ndim]));
     double *currentX = malloc(ndim*sizeof(double));
+
+    int bins = 500;
+    double xmax = 5;
+    int (*x_hist)[bins] = malloc(sizeof(double[iters][bins]));
 
     /* RNG */
     const gsl_rng_type *T;
@@ -204,14 +198,47 @@ void control(int cs, int ndim, int N0, int iters, double dtau, double alpha, dou
         ET = evaluateEnergy(N0, N, dtau, alpha, ETPhoneHome, i);
         // printf("\t ET=%.2f \n", ET);
 
+        double pos;
+        int idx;
+        if(cs==1){
+            for(int j=0; j<N; j++){
+                pos = x[j][0];
+                idx = (int)(bins/2 * (pos/xmax + 1));
+                if(idx < 0){
+                    idx = 0;
+                }else if(idx > bins-1){
+                    idx = bins-1;
+                }
+                x_hist[i][idx] += 1; 
+            }
+        }
         /* Save results */
         Nwalkers[i] = N;
         ETPhoneHome[i] = ET;
     }
 
+    if(cs==1){
+        /* Write x_hist to file */
+        FILE *f;
+
+        /***** Write to file *****/
+        double tau;
+        f = fopen("task1_hist.dat", "w");
+            for(int i=0; i<iters; i++){
+                tau = i*dtau;
+                fprintf(f, "%.8f \t", tau);
+                for(int j=0; j<bins; j++){
+                     fprintf(f, "%d \t", x_hist[i][j]);
+                }
+                fprintf(f, "\n");
+            }
+        fclose(f);
+    }
+
     /****** Free variables ******/
     free(x); x=NULL;
     free(currentX); currentX=NULL;
+    free(x_hist); x_hist=NULL;
 }
 
 

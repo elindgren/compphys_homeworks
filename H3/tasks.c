@@ -42,8 +42,8 @@ void runTask2(){
     int cs = 2;  // cs = case för att c suger röv
     int ndim = 6;
     int N0 = 500;
-    double dtau = 0.01;
-    double alpha = 0.25;
+    double dtau = 0.005;
+    double alpha = 0.05;
     /* Data structures */
     double *Nwalkers = malloc(iters * sizeof(double));
     double *ETPhoneHome = malloc(iters * sizeof(double));
